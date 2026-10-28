@@ -1,0 +1,10 @@
+packages:
+  - main-app/backend
+  - main-app/frontend
+  - bar-post-mock-app
+  - payment-terminal-mock-app
+  - packages/*
+allowBuilds:
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
