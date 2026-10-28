@@ -77,3 +77,25 @@ The baseline technical and business decisions made before development started ar
 - **Registration numbers** are trimmed and uppercased by the shared Zod schema before validation (1–15 characters), so `xx000xx ` and `XX000XX` are the same car.
 - **Parking** got an `updatedAt` field, which isn't in initial-description.md, for consistency with the other models.
 - **The workspace's TypeScript files import each other without file extensions** (`moduleResolution: bundler`). The code runs through tsx and Vitest and is never compiled by `tsc`, which only checks types.
+
+### A car that's already inside is denied entrance
+- **Decision:** if a space is `occupied` by the car approaching from the outside, the main system denies entrance (`reason: "vehicle_already_inside"`) and emits a critical log.
+- **Why:** a car can't physically be inside and at the entrance at the same time, so the data is wrong (most likely the exit wasn't registered) and support must look into it. Booking another space would also violate the one-open-parking-per-car index. This covers the assignment's "entering the lot twice" requirement.
+- **Alternatives:** letting the car in anyway (keeps the driver moving, but hides the inconsistency and leaves the lot's state wrong).
+
+### Walk-in booking details
+- **Decision:** the vacant spaces are tried in `displayName` order (A1 first). If a space is taken between the read and the update, the next vacant one is tried, and the car is denied only when none are left. If creating the parking fails because the car already has an open parking (with no space booked or occupied for it), a critical log is emitted and the request fails with a 500, which the bar post shows as "not working".
+- **Why:** a race for one space shouldn't turn a car away while other spaces are free. The failing case is inconsistent data that support needs to fix.
+
+### Device API: auth, validation and responses
+- **Decision:** the device routes live in one Fastify plugin with an `onRequest` hook that checks `x-api-key` (compared through SHA-256 hashes with `timingSafeEqual`, which avoids leaking the key through timing). An invalid or missing key gets a 401. Bodies are validated with the shared Zod schemas through `safeParse` in the handler, and an invalid body gets a 400. A valid request always gets a 200 with `{ allowed: true }` or `{ allowed: false, reason }`.
+- **Why:** no extra packages. The plugin scope keeps the key check off the future frontend routes.
+- **Alternatives:** `fastify-type-provider-zod` (validates through route schemas, but it's one more dependency for a handful of routes).
+
+### Bar post mock details
+- **Decision:** `pnpm bar-post --reg <regNumber> --direction in|out`, built with Commander. The mock doesn't validate the registration number itself: it passes whatever "the camera read" to the main app, so the main app's validation can be tried out by hand. Requests time out after 5 seconds. Any error, timeout or non-2xx response shows "The bar post isn't working". The env is read from the root `.env` with Node's built-in `process.loadEnvFile`, so there's no dotenv dependency. `out` prints "not supported yet" until `/api/new-exit` exists, and the follow-up `/api/new-parking` call is added in step 2.
+
+### Backend testing approach
+- **Decision:** integration tests run through `app.inject` against the real test Postgres (`db-test`). Vitest's global setup applies the migrations with `prisma migrate deploy`. Each test truncates the tables and recreates the 6 spaces, and test files run one at a time.
+- **Why:** the main risks (concurrent bookings, the partial unique indexes) live in the database and can't be checked with mocks. The tests include two concurrency cases: two cars racing for the last space, and 10 cars arriving at an empty 6-space lot.
+- **Day/night rate logic** (`getRateTypeAt`) lives in the shared package, so the frontend can use it later, and has its own unit tests around the 08:00 and 20:00 boundaries in UTC+4.

@@ -21,6 +21,6 @@ export type NewEntranceRequest = z.infer<typeof newEntranceRequestSchema>;
 
 export const newEntranceResponseSchema = z.discriminatedUnion("allowed", [
   z.object({ allowed: z.literal(true) }),
-  z.object({ allowed: z.literal(false), reason: z.literal("no_available_spaces") }),
+  z.object({ allowed: z.literal(false), reason: z.enum(["no_available_spaces", "vehicle_already_inside"]) }),
 ]);
 export type NewEntranceResponse = z.infer<typeof newEntranceResponseSchema>;

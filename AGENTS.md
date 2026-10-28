@@ -26,6 +26,10 @@ Only the main app is built fully; keep the mocks as simple as possible.
 ## Commands
 - `pnpm db:up` / `pnpm db:down` – start / stop the Postgres containers
 - `pnpm typecheck` – type-check all packages
+- `pnpm test` – run all tests (the backend's need the `db-test` container running). Don't pass file filters to it: it runs every package's `test` script with the same args, and packages without a match fail
+- `pnpm --filter @parking/backend test <file-substring>` / `-t "<test name>"` – run selected backend tests
+- `pnpm bar-post --reg XX000XX --direction in` – simulate a car at the bar post (needs the backend running)
+- `pnpm --filter @parking/backend dev` – run the main backend with reload on change
 - `pnpm --filter @parking/backend db:migrate` – create and apply migrations
 - `pnpm --filter @parking/backend db:generate` – regenerate the Prisma client
 - `pnpm --filter @parking/backend db:seed` – seed the spaces

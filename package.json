@@ -6,7 +6,8 @@
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "typecheck": "pnpm -r typecheck",
-    "test": "vitest"
+    "test": "pnpm -r test",
+    "bar-post": "pnpm --filter @parking/bar-post-mock bar-post"
   },
   "keywords": [],
   "author": "",
