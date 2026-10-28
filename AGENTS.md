@@ -4,6 +4,7 @@
 - Do not start writing code unless the user confirms or explicitly asks you to. Discuss and propose first.
 - Do not install packages. Recommend them instead and provide the exact installation commands for the user to run.
 - Do not commit or touch Git in any way (no commits, branches, staging, stashes, resets, etc.) unless the user explicitly asks.
+- Write as few comments as possible, in code and config files alike. Add one only when something truly can't be understood without it.
 
 ## Project context
 Read these before working on the project:
@@ -21,6 +22,13 @@ Repo layout (pnpm workspace):
 - `packages/shared` – Zod schemas, types, and business config (rates, timezone) used by all apps
 
 Only the main app is built fully; keep the mocks as simple as possible.
+
+## Commands
+- `pnpm db:up` / `pnpm db:down` – start / stop the Postgres containers
+- `pnpm typecheck` – type-check all packages
+- `pnpm --filter @parking/backend db:migrate` – create and apply migrations
+- `pnpm --filter @parking/backend db:generate` – regenerate the Prisma client
+- `pnpm --filter @parking/backend db:seed` – seed the spaces
 
 ## Maintaining the context files
 - **docs/log.md**: after finishing a piece of work (a feature, a setup step, a context update), add a short entry describing what was done. Newest entries go on top, dated `DD.MM.`. There's only one entry per date: if today's entry already exists, add a bullet to its list instead of creating a new dated entry.

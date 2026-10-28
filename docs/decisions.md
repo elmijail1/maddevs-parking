@@ -41,9 +41,10 @@ The baseline technical and business decisions made before development started ar
 - **Why:** cars without an account must be able to enter, and the gate can't provide a VIN or registration certificate number. The Vehicle model only exists to let users who have verified the car (VIN + certificate) see its parking state. That isn't strong protection against tracking, but it's enough for this app.
 
 ### Preventing double booking of a space
-- **Decision:** an atomic conditional update inside a transaction: `UPDATE space SET status='booked', relatedVehicle=? WHERE id=? AND status='vacant'`, then check the number of affected rows (0 means someone got there first). As a safety net, partial unique indexes in the DB: one `booked`/`active` parking per space, and one per car (added through a raw SQL migration, since Prisma doesn't support partial unique indexes in its schema).
-- **Why:** simple, with no explicit locks held, and enforced by the database itself.
-- **Alternatives:** pessimistic row locking (`SELECT … FOR UPDATE`).
+- **Decision:** an atomic conditional update inside a transaction: `UPDATE space SET status='booked', relatedVehicle=? WHERE id=? AND status='vacant'`, then check the number of affected rows (0 means someone got there first). As a safety net, partial unique indexes in the DB: one `booked`/`active` parking per space, and one per car. They're defined in `schema.prisma` with Prisma's `partialIndexes` preview feature (`@@unique([...], where: raw("status IN ('booked', 'active')"))`), so Prisma generates them in migrations itself.
+- **Why:** simple, with no explicit locks held, and enforced by the database itself. Keeping the indexes in the schema (instead of a hand-written SQL migration) stops Prisma from seeing them as drift and generating migrations that drop them.
+- **Caveat:** because of these indexes, the generated client accepts `spaceId` and `vehicleRegNumber` in `findUnique`/`upsert`. Never look up parkings that way: the uniqueness only holds for open parkings, so always filter by status with `findFirst`/`findMany`/`updateMany`.
+- **Alternatives:** pessimistic row locking (`SELECT … FOR UPDATE`); a raw SQL migration for the indexes (the original plan, replaced once it turned out Prisma 7 supports partial indexes).
 
 ### Money, rates and time
 - **Decision:**
@@ -66,4 +67,13 @@ The baseline technical and business decisions made before development started ar
 - **Why:** it behaves exactly like a normal booking, and the window is short enough not to matter.
 
 ### Spaces
-- **Decision:** 6 spaces named A1–A3 and B1–B3, created by a seed script.
+- **Decision:** 6 spaces named A1–A3 and B1–B3, created by an idempotent seed script (`createMany` with `skipDuplicates`).
+
+### Setup details
+- **Prisma 7.10.1**, with `prisma` and `@prisma/client` pinned to the exact same version. npm's `latest` tag for `prisma` pointed to an 8.0 release candidate, which didn't match the client. Prisma 7 needs a driver adapter (`@prisma/adapter-pg` + `pg`), and its config lives in `prisma.config.ts`.
+- **One `.env` in the repo root**, read by every app (and by `prisma.config.ts`). The backend validates its env with Zod at startup (`src/env.ts`).
+- **Two Postgres containers:** `db` (port 5432, persistent volume) for development and `db-test` (port 5433, in-memory) for tests.
+- **Timestamps** are `timestamptz`, so stored times are unambiguous whatever the server's timezone.
+- **Registration numbers** are trimmed and uppercased by the shared Zod schema before validation (1–15 characters), so `xx000xx ` and `XX000XX` are the same car.
+- **Parking** got an `updatedAt` field, which isn't in initial-description.md, for consistency with the other models.
+- **The workspace's TypeScript files import each other without file extensions** (`moduleResolution: bundler`). The code runs through tsx and Vitest and is never compiled by `tsc`, which only checks types.

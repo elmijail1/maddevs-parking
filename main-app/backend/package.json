@@ -2,15 +2,18 @@
   "name": "@parking/backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "type": "module",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
-  "private": true,
   "dependencies": {
     "@parking/shared": "workspace:*",
     "@prisma/adapter-pg": "7.10.1",
