@@ -6,6 +6,31 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 29.10. Step 5 (parking lot diagram)
+
+### Live updates through SSE
+- **Decision:** the diagram gets space changes through Server-Sent Events (`GET /api/spaces/events`). User actions (booking, cancelling) stay regular HTTP calls. The backend sends the whole space list on every change and on every (re)connect, and the frontend writes it into the TanStack Query cache. `GET /api/spaces` serves the initial load. Changes are announced by an in-process emitter, called after each transaction that changes spaces.
+- **Why:** updates flow from the server to the browser and happen often (other cars booking, entering, leaving), while user actions are rare one-off requests that need a normal response. `EventSource` reconnects by itself, and the server side needs no package. Sending the whole list (6 spaces) means nothing can arrive out of order.
+- **Alternatives:** WebSocket (two-way, which we don't need; more to build); polling (wasted requests, delayed updates). Postgres `LISTEN/NOTIFY` instead of the in-process emitter would also catch other processes' changes (several backend instances, Prisma Studio), but isn't needed with one backend.
+
+### Spaces are public without the related vehicle
+- **Decision:** the spaces routes are public for now and return only `id`, `displayName` and `status`. `relatedVehicle` is never sent: whether a space is "yours" will come from the user's own parkings once users exist.
+- **Why:** a registration number tied to a space would let anyone follow a car.
+
+### Frontend stack
+- **Decision:** Vite + React with React Router (the diagram at `/spaces`), MUI for components (dialogs, buttons, the spinner), Tailwind for layout, TanStack Query for server state. The files are written by hand instead of with `create vite`, to match the other packages. Vite proxies `/api` to the backend, so there's no CORS and the SSE stays same-origin.
+- **Spaces are plain rectangles** in two rows facing each other across a driveway. Rows are grouped by the first letter of the display name.
+- **MUI and Tailwind together:** MUI's styles go into their own CSS layer (`StyledEngineProvider enableCssLayer` and `@layer theme, base, mui, components, utilities`), so Tailwind utilities always win and Tailwind's reset doesn't fight MUI. MUI's `CssBaseline` isn't used.
+
+### Implementation details of the live updates
+- **Changes are announced from the device routes** that can change spaces (new-entrance, new-parking, space-vacant-again), after the service finishes, so the transaction is committed. Future booking, cancelling and expiry code will announce the same way.
+- **One broadcast at a time:** a change reads the list once for all clients, and changes that arrive during a broadcast cause exactly one more read. Each client remembers the last list it got and only receives a different one, so a request that changed nothing sends nothing. A newly connected client gets the list through the same queue, so it can never receive an older list after a newer one.
+- **No DB read while no client is connected**, which also keeps the other backend tests unaffected.
+- **A heartbeat comment every 25 s** keeps proxies from closing an idle stream, and `retry: 3000` sets the browser's reconnect delay. `forceCloseConnections` is on so open streams don't block a server restart.
+- **The frontend recovers by itself:** the SSE list goes into the same query cache as `GET /api/spaces`, so a failed first load is replaced by the next pushed list. A dialog for a space that stops being vacant closes and doesn't reopen when the space is freed.
+
+---
+
 ## 29.10. Step 4 (handleCarExit)
 
 ### Freeing the space also closes the car's open parking on it

@@ -32,6 +32,7 @@ Only the main app is built fully; keep the mocks as simple as possible.
 - `pnpm bar-post --reg XX000XX --direction in|out` – simulate a car at the bar post (needs the backend running; exits also need the payment terminal)
 - `pnpm payment-terminal` – start the payment terminal mock (stays running, type the payment result when a session arrives)
 - `pnpm --filter @parking/backend dev` – run the main backend with reload on change
+- `pnpm frontend` – run the frontend dev server (Vite, http://localhost:5173, proxies `/api` to `MAIN_APP_URL`)
 - `pnpm --filter @parking/backend db:migrate` – create and apply migrations
 - `pnpm --filter @parking/backend db:generate` – regenerate the Prisma client
 - `pnpm --filter @parking/backend db:seed` – seed the spaces

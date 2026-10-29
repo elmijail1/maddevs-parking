@@ -15,6 +15,7 @@ import { allowEntrance } from "../services/entrance";
 import { startExit } from "../services/exit";
 import { handleNewParking, resolveEntranceTime } from "../services/new-parking";
 import { completePayment, getPaymentStatus } from "../services/payments";
+import { notifySpacesChanged } from "../services/spaces";
 import { handleCarExit } from "../services/vacancy";
 
 const looseBodySchema = z.record(z.string(), z.unknown()).catch({});
@@ -28,7 +29,9 @@ export const deviceRoutes: FastifyPluginAsync = async (app) => {
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", issues: parsed.error.issues });
     }
-    return allowEntrance(parsed.data.regNumber, request.log);
+    const result = await allowEntrance(parsed.data.regNumber, request.log);
+    notifySpacesChanged(request.log);
+    return result;
   });
 
   app.post("/new-parking", async (request, reply) => {
@@ -40,6 +43,7 @@ export const deviceRoutes: FastifyPluginAsync = async (app) => {
     }
     const time = resolveEntranceTime(body.time, request.log);
     const result = await handleNewParking(regNumber.data, time, request.log);
+    notifySpacesChanged(request.log);
     return reply.code(result === "no_space" ? 409 : 204).send();
   });
 
@@ -58,6 +62,7 @@ export const deviceRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(400).send({ error: "invalid_request", issues: parsed.error.issues });
     }
     await handleCarExit(parsed.data.regNumber, request.log);
+    notifySpacesChanged(request.log);
     return reply.code(204).send();
   });
 

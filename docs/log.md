@@ -9,6 +9,9 @@
 - The bar post now handles exits: it shows the total, polls the payment status and opens or stays closed.
 - Added step 4, POST /api/space-vacant-again (handleCarExit): frees every space related to the leaving car, cancels its booked parking on them, finishes an unpaid active parking with a critical log. The bar post calls it after opening for an exit.
 - Added 16 tests for space-vacant-again (the 6 plan cases plus unpaid parkings, repeated calls, re-entering, invalid bodies and API keys; 105 tests in total, all passing). Checked entrance → paid exit → re-entrance end to end with the real servers.
+- Agreed on the step 5 design (SSE for live updates, no relatedVehicle in public space data, Vite + React + React Router + MUI + Tailwind) and set up the frontend package; the user installed its dependencies.
+- Added GET /api/spaces and the SSE stream GET /api/spaces/events: the whole list on connect and after every change from new-entrance, new-parking and space-vacant-again, sent only when it actually changed. 5 backend tests (90 backend tests in total).
+- Added the frontend: the parking lot diagram at /spaces (two rows of spaces across a driveway, loading and error states, the space details dialog with rates, the booking dialog with regNumber validation and a non-working "Book for ..." button), live updates through SSE into the TanStack Query cache. 11 frontend tests, including the plan's two cases. Checked the stream through the Vite proxy with the real backend and the bar post.
 
 28.10. Set up AI agent context:
 - AGENTS.md: agent working rules (no code without confirmation, no package installs, no Git) and pointers to context files

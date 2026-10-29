@@ -53,6 +53,20 @@ export const spaceVacantAgainRequestSchema = z.object({
 });
 export type SpaceVacantAgainRequest = z.infer<typeof spaceVacantAgainRequestSchema>;
 
+export const spaceSchema = z.object({
+  id: z.uuid(),
+  displayName: z.string(),
+  status: spaceStatusSchema,
+});
+export type Space = z.infer<typeof spaceSchema>;
+
+export const spacesResponseSchema = z.object({
+  spaces: z.array(spaceSchema),
+});
+export type SpacesResponse = z.infer<typeof spacesResponseSchema>;
+
+export const spacesEventName = "spaces";
+
 export const paymentSessionRequestSchema = z.object({
   paymentId: z.uuid(),
   total: z.number().int().nonnegative(),
