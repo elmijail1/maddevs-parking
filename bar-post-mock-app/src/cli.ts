@@ -99,6 +99,13 @@ async function askToLetOut(regNumber: string) {
   return status === "success" ? messages.goodbye : messages[status];
 }
 
+async function reportExit(regNumber: string) {
+  const response = await requestMainApp("/api/space-vacant-again", { regNumber });
+  if (!response.ok) {
+    await printUnexpectedResponse(response);
+  }
+}
+
 async function handlePassthrough(regNumber: string, direction: Direction) {
   console.log(`Car ${regNumber} is approaching from the ${direction === "in" ? "outside" : "inside"}`);
   let message = messages.notWorking;
@@ -111,6 +118,9 @@ async function handlePassthrough(regNumber: string, direction: Direction) {
 
   if (message === messages.open) {
     await reportEntrance(regNumber).catch(printError);
+  }
+  if (message === messages.goodbye) {
+    await reportExit(regNumber).catch(printError);
   }
 }
 

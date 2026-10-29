@@ -7,6 +7,8 @@
 - Added 48 backend tests for the exit flow, payment results, polling, payment constraints and total refreshes (89 tests in total, all passing).
 - Added the payment terminal mock: a long-running process with a /sessions endpoint, a prompt for the result and a 5-minute timeout.
 - The bar post now handles exits: it shows the total, polls the payment status and opens or stays closed.
+- Added step 4, POST /api/space-vacant-again (handleCarExit): frees every space related to the leaving car, cancels its booked parking on them, finishes an unpaid active parking with a critical log. The bar post calls it after opening for an exit.
+- Added 16 tests for space-vacant-again (the 6 plan cases plus unpaid parkings, repeated calls, re-entering, invalid bodies and API keys; 105 tests in total, all passing). Checked entrance → paid exit → re-entrance end to end with the real servers.
 
 28.10. Set up AI agent context:
 - AGENTS.md: agent working rules (no code without confirmation, no package installs, no Git) and pointers to context files

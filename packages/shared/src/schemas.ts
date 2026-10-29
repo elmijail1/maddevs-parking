@@ -48,6 +48,11 @@ export const newExitResponseSchema = z.discriminatedUnion("status", [
 ]);
 export type NewExitResponse = z.infer<typeof newExitResponseSchema>;
 
+export const spaceVacantAgainRequestSchema = z.object({
+  regNumber: regNumberSchema,
+});
+export type SpaceVacantAgainRequest = z.infer<typeof spaceVacantAgainRequestSchema>;
+
 export const paymentSessionRequestSchema = z.object({
   paymentId: z.uuid(),
   total: z.number().int().nonnegative(),

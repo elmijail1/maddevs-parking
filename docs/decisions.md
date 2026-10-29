@@ -6,6 +6,21 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 29.10. Step 4 (handleCarExit)
+
+### Freeing the space also closes the car's open parking on it
+- **Decision:** `POST /api/space-vacant-again` frees every space where `relatedVehicle` is the leaving car (status `vacant`, `relatedVehicle` null), in one transaction. The car's open parkings on those spaces are closed too:
+  - a **booked** parking is cancelled, with a warning
+  - an **active** (unpaid) parking gets its total refreshed up to now and becomes `finished`, with a critical log that includes the unpaid total so support can follow up
+- **Why:** the one-open-parking-per-space/vehicle indexes would otherwise block the freed space and the car's next entrance. The car has physically left, so a free space reflects the real state and makes room for more cars.
+- **Alternatives:** keeping the space occupied while the parking is unpaid (rejected: it blocks a space that's actually free); freeing only the space (rejected: it breaks later claims).
+
+### Response and exit time
+- **Decision:** every valid request gets `204`, including "no related space" (a critical log only), since the bar post doesn't need an answer. An invalid regNumber gets `400` with a critical log. The bar post calls the endpoint right after it opens for an exit; a failure is only printed.
+- **No `finishedAt` field** on parkings for now: nothing reads the exit time yet.
+
+---
+
 ## 29.10. Step 3 (allowExit)
 
 ### Charges are calculated by a pure function, cron only refreshes stored values
@@ -21,7 +36,7 @@ The baseline technical and business decisions made before development started ar
     - `GET /api/payments/:paymentId`: the bar post's polling
     - All three are behind the API key.
   - **The terminal mock** receives sessions at `POST /sessions` and answers 202 right away.
-  - **Successful payment:** the parking becomes `finished`, but the space stays `occupied` until the car actually leaves (step 4).
+  - **Successful payment:** the parking becomes `finished`, but the space stays `occupied` until the car actually leaves (step 4, `/api/space-vacant-again`).
   - **A late `success`** for a payment that's no longer pending is ignored with a **critical** log: the driver may have paid for nothing. A late `cancelled`/`failed` is only a non-critical log.
   - **A pending payment counts as stale** after `paymentSessionTimeoutMinutes` + `paymentResultGraceSeconds` (5 min + 30 s, both in the shared config). The bar post waits a few seconds longer than that, so it always sees the main app's fallback result.
   - **Plan case 4** (several active parkings for one car) can't happen because of the one-open-parking-per-car index, so it isn't handled.

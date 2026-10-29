@@ -3,6 +3,7 @@ import {
   newExitRequestSchema,
   newParkingRequestSchema,
   paymentResultRequestSchema,
+  spaceVacantAgainRequestSchema,
   type NewEntranceResponse,
   type NewExitResponse,
   type PaymentStatusResponse,
@@ -14,6 +15,7 @@ import { allowEntrance } from "../services/entrance";
 import { startExit } from "../services/exit";
 import { handleNewParking, resolveEntranceTime } from "../services/new-parking";
 import { completePayment, getPaymentStatus } from "../services/payments";
+import { handleCarExit } from "../services/vacancy";
 
 const looseBodySchema = z.record(z.string(), z.unknown()).catch({});
 const paymentParamsSchema = z.object({ paymentId: z.uuid() });
@@ -47,6 +49,16 @@ export const deviceRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(400).send({ error: "invalid_request", issues: parsed.error.issues });
     }
     return startExit(parsed.data.regNumber, request.log);
+  });
+
+  app.post("/space-vacant-again", async (request, reply) => {
+    const parsed = spaceVacantAgainRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      request.log.error({ critical: true, body: request.body }, "Vehicle left with an invalid registration number");
+      return reply.code(400).send({ error: "invalid_request", issues: parsed.error.issues });
+    }
+    await handleCarExit(parsed.data.regNumber, request.log);
+    return reply.code(204).send();
   });
 
   app.post("/payment-result", async (request, reply) => {
