@@ -1,5 +1,15 @@
-import { spacesEventName, spacesResponseSchema, type Space } from "@parking/shared";
+import {
+  bookingResponseSchema,
+  myParkingsResponseSchema,
+  spacesEventName,
+  spacesResponseSchema,
+  type Booking,
+  type BookSpaceRequest,
+  type MyParking,
+  type Space,
+} from "@parking/shared";
 import { UnauthorizedError } from "../api-errors";
+import { sendRequest } from "../api-request";
 
 export const spacesQueryKey = ["spaces"];
 export const spacesEventsUrl = "/api/spaces/events";
@@ -25,4 +35,14 @@ export function subscribeToSpaces(onSpaces: (spaces: Space[]) => void) {
     }
   });
   return () => source.close();
+}
+
+export const myParkingsQueryKey = ["myParkings"];
+
+export async function fetchMyParkings(): Promise<MyParking[]> {
+  return myParkingsResponseSchema.parse(await sendRequest("GET", "/api/my-parkings")).parkings;
+}
+
+export async function bookSpace(body: BookSpaceRequest): Promise<Booking> {
+  return bookingResponseSchema.parse(await sendRequest("POST", "/api/bookings", body)).booking;
 }

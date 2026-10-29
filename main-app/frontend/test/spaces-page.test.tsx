@@ -110,8 +110,9 @@ describe("parking lot diagram", () => {
     expect(await available("A1")).toBeInTheDocument();
   });
 
-  it("shows the space's rates and leads to the booking dialog", async () => {
+  it("shows the space's rates with Close and Book this space buttons", async () => {
     respondWithSpaces(spacesWith("vacant"));
+    mockApi({ "GET /api/cars": () => json(200, { cars: [] }) });
     renderPage();
 
     await userEvent.click(await available("A3"));
@@ -121,28 +122,14 @@ describe("parking lot diagram", () => {
     expect(within(details).getByText("08:00–20:00: $12.00 per hour")).toBeInTheDocument();
     expect(within(details).getByText("20:00–08:00: $6.00 per hour")).toBeInTheDocument();
 
-    await userEvent.click(within(details).getByRole("button", { name: "Book this space" }));
+    await userEvent.click(within(details).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
-    const booking = await screen.findByRole("dialog", { name: "Book A3" });
+    await userEvent.click(await available("A3"));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Book this space" }));
+
+    expect(await screen.findByRole("dialog", { name: "Book A3" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "A3" })).not.toBeInTheDocument();
-    expect(within(booking).getByRole("button", { name: "Book" })).toBeDisabled();
-
-    await userEvent.type(within(booking).getByLabelText("Vehicle registration number"), " aa111aa");
-
-    expect(within(booking).getByRole("button", { name: "Book for AA111AA" })).toBeEnabled();
-  });
-
-  it("rejects a registration number that's too long", async () => {
-    respondWithSpaces(spacesWith("vacant"));
-    renderPage();
-    await userEvent.click(await available("A1"));
-    await userEvent.click(await screen.findByRole("button", { name: "Book this space" }));
-
-    const booking = await screen.findByRole("dialog", { name: "Book A1" });
-    await userEvent.type(within(booking).getByLabelText("Vehicle registration number"), "A".repeat(16));
-
-    expect(within(booking).getByText("Use 1 to 15 characters")).toBeInTheDocument();
-    expect(within(booking).getByRole("button", { name: "Book" })).toBeDisabled();
   });
 
   it("closes the dialog when another car takes the space and doesn't reopen it when the space is freed", async () => {

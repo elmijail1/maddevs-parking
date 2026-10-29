@@ -23,6 +23,9 @@
 - Agreed on the step 8 (My cars page) details: display names with spaces, apostrophes and hyphens, uppercase identifiers, one mismatch message, already-added error, removal clears the name and asks for confirmation, dates in UTC+4. Updated implementation-plan.md to match.
 - Added the UserVehicle model (migration `user_vehicles`), shared car schemas and `formatLotDate` (19 tests), and GET/POST /api/cars, PATCH/DELETE /api/cars/:id. 30 new backend tests (171 in total).
 - Added the /cars page (Add car dialog, cards, inline name editor, delete confirmation) and the "My Cars" header link; moved the request helper into a shared `sendRequest`; the saving overlays now cover the header. 28 new frontend tests (89 in total). Checked the cars API through the Vite proxy with two users.
+- Agreed on the step 9 (booking from the app) details: only the user's own cars, busy cars left out of the list plus a server guard, the new car preselected, Cancel disabled until step 10, a simple parked dialog until step 11, shared cars highlighted for everyone who has them, times in UTC+4. Updated implementation-plan.md (steps 5 and 9).
+- Added POST /api/bookings and GET /api/my-parkings, booking schemas and `formatLotTime`; bookings are announced over SSE. 16 new backend tests (187 in total).
+- Added the booking flow on /spaces (details with Close, car selection with Add new car, success and unavailable messages), yellow pulsing highlights of the user's spaces with their dialogs, and highlight refreshes on every SSE update. Replaced the step 5 typing dialog. 15 new frontend tests (104 in total). Checked booking, races, my-parkings, SSE and entering with a booked car through the Vite proxy and the bar post.
 
 28.10. Set up AI agent context:
 - AGENTS.md: agent working rules (no code without confirmation, no package installs, no Git) and pointers to context files

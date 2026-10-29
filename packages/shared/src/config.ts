@@ -1,5 +1,5 @@
 export const rates = {
-  baseRatePerMinuteCents: 10,
+  baseRatePerMinuteCents: 2,
   multipliers: {
     day: 2,
     night: 1,

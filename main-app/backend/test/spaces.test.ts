@@ -126,6 +126,27 @@ describe("GET /api/spaces/events", () => {
     expect(statuses(await nextSpaces())).toMatchObject({ A1: "vacant" });
   });
 
+  it("sends the spaces again after a user books one", async () => {
+    const { nextSpaces } = await openSpacesStream();
+    await nextSpaces();
+    const car = await app.inject({
+      method: "POST",
+      url: "/api/cars",
+      headers: { cookie },
+      payload: { regNumber: "XX000XX", vin: "VIN12345", certificateNumber: "CERT1" },
+    });
+    const spaceId = (await prisma.space.findUniqueOrThrow({ where: { displayName: "B1" } })).id;
+
+    await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      headers: { cookie },
+      payload: { spaceId, carId: car.json().car.id },
+    });
+
+    expect(statuses(await nextSpaces())).toMatchObject({ B1: "booked" });
+  });
+
   it("sends every change to every connected client", async () => {
     const first = await openSpacesStream();
     const second = await openSpacesStream();

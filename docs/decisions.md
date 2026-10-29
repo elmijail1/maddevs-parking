@@ -6,6 +6,25 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 29.10. Step 9 (booking from the app)
+
+### Booking a specific space
+- **Decision:** `POST /api/bookings` with `{ spaceId, carId }`. In one transaction the space goes from `vacant` to `booked` (a conditional update, so two users can't both get it) with `relatedVehicle` set, and a `booked` parking is created with `activeSince` = now + 15 min, as `initial-description.md` describes; for booked parkings that time is the expiry. Answers: `201` with the booking, `409 space_unavailable`, `409 vehicle_busy` (the car already has a booked or active parking, caught by the one-open-parking-per-vehicle index, which rolls everything back), `404 car_not_found`. A successful booking is announced over SSE like any other space change.
+- **Only the user's own cars:** `carId` must be an active car on the user's list; typing in any number was dropped (it would let anyone book under someone else's number). The plan was updated.
+- **Shared cars:** any user who has the car on their list can book with it and sees its space highlighted, as `initial-description.md` says.
+
+### The user's own spaces
+- **Decision:** `GET /api/my-parkings` returns the booked and active parkings of the user's active cars (space, car, status, and `expiresAt` or `activeSince`). The general spaces data still has no car numbers. The frontend refetches it on every SSE update, so highlights follow bookings, entrances, exits and other tabs.
+- **Highlight:** the user's spaces are filled yellow and pulse (Tailwind `animate-pulse`), and are clickable: a booked one shows "This space is booked for AA111AA. The booking expires at 10:15." with a Cancel booking button that stays disabled until step 10; a parked one shows "AA111AA is parked here since 10:12." until step 11. Times are 24-hour `HH:mm` in the lot's UTC+4 (`formatLotTime`).
+
+### The booking dialogs
+- **Flow:** space details (rates, Close, Book this space) → choose a car (the user's cars that have no booked or active parking, Add new car, Back, "Book for AA111AA") → a success or "This space is unavailable, please try another" message with OK, which closes everything.
+- **Adding a car** opens the same `AddCarDialog` as on `/cars`; afterwards the new car is selected.
+- **If the space is taken while choosing,** the "unavailable" message appears at once (unless the user's own booking request is in flight), rather than only after clicking Book.
+- **A car that got busy in the meantime** (e.g. booked from another tab) shows "AA111AA already has a booking or is in the lot." and the list is refreshed.
+
+---
+
 ## 29.10. Step 8 (My cars page)
 
 ### UserVehicle: one row per user and car

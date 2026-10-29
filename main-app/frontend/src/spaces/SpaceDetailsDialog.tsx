@@ -27,6 +27,7 @@ export function SpaceDetailsDialog({
             </Typography>
           </DialogContent>
           <DialogActions>
+            <Button onClick={onClose}>Close</Button>
             <Button variant="contained" onClick={() => onBook(space)}>
               Book this space
             </Button>

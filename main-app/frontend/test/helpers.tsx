@@ -56,7 +56,10 @@ export function resetApi(user: AuthUser | null = testUser) {
     }
     return handler(init?.body ? JSON.parse(String(init.body)) : undefined);
   });
-  mockApi({ "GET /api/auth/me": () => (user ? json(200, { user }) : json(401, { error: "unauthorized" })) });
+  mockApi({
+    "GET /api/auth/me": () => (user ? json(200, { user }) : json(401, { error: "unauthorized" })),
+    "GET /api/my-parkings": () => json(200, { parkings: [] }),
+  });
 }
 
 export const requestsTo = (route: string) =>
