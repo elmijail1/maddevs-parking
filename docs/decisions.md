@@ -6,6 +6,37 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 29.10. Step 3 (allowExit)
+
+### Charges are calculated by a pure function, cron only refreshes stored values
+- **Decision:** `calculateCharge(from, to)` in the shared package counts the full minutes between two times. Each minute is charged at the rate in effect when it started, walking from one 08:00/20:00 boundary to the next. The backend's `refreshParkingTotals(parking, now)` adds that charge to `total`, moves `latestTotalUpdate` forward **only by the charged minutes** (so leftover seconds are never lost), and switches `currentRate`, setting `latestRateChange` to the boundary where it switched. The exit uses it now. The hourly cron job (step 7) and the user's "refresh my car" action will call the same function.
+- **Why:** the total is correct whether or not cron ran on time, and how often the refresh runs doesn't change the result. Both functions can be tested with fixed dates, without running cron.
+- **Alternatives:** relying on cron alone to switch rates (correct only if it always runs on time, and hard to test).
+
+### Exit and payment flow
+- **Decision:** as agreed on 28.10 (an asynchronous terminal, polling, priority for the new car, timeout fallback). Implementation details:
+  - **Routes:**
+    - `POST /api/new-exit`: answers `awaiting_payment` with the payment id and total, or `denied` with `no_active_parking` / `terminal_unavailable`
+    - `POST /api/payment-result`: the terminal reports the result
+    - `GET /api/payments/:paymentId`: the bar post's polling
+    - All three are behind the API key.
+  - **The terminal mock** receives sessions at `POST /sessions` and answers 202 right away.
+  - **Successful payment:** the parking becomes `finished`, but the space stays `occupied` until the car actually leaves (step 4).
+  - **A late `success`** for a payment that's no longer pending is ignored with a **critical** log: the driver may have paid for nothing. A late `cancelled`/`failed` is only a non-critical log.
+  - **A pending payment counts as stale** after `paymentSessionTimeoutMinutes` + `paymentResultGraceSeconds` (5 min + 30 s, both in the shared config). The bar post waits a few seconds longer than that, so it always sees the main app's fallback result.
+  - **Plan case 4** (several active parkings for one car) can't happen because of the one-open-parking-per-car index, so it isn't handled.
+- **The terminal mock is built on Node's `http` module**, not Fastify: it has a single route, so it doesn't need a framework.
+
+### Partial index conditions are written the way Postgres stores them
+- **Decision:** the `where: raw(...)` conditions in `schema.prisma` use Postgres' own normalized form, `(status = ANY (ARRAY['booked'::"ParkingStatus", ...]))`, instead of `status IN (...)`.
+- **Why:** Prisma compares the schema text with the condition Postgres stores. Postgres rewrites `IN (...)` to `= ANY (ARRAY[...])`, so with the shorter form every new migration would drop and recreate the indexes.
+
+### Creating migrations without touching the development database
+- **Decision:** when the agent creates a migration, it generates the SQL with `prisma migrate diff --from-config-datasource --to-schema` against the **test** database (which has every migration applied) and saves it as a new migration folder. The user applies it to the development database with `db:migrate`.
+- **Why:** `prisma migrate dev` doesn't work non-interactively, and the development database is the user's.
+
+---
+
 ## 28.10. Initial architecture and step 1 (allowEntrance) decisions
 
 ### Workspace structure

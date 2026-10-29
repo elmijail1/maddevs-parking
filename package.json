@@ -7,7 +7,8 @@
     "db:down": "docker compose down",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "bar-post": "pnpm --filter @parking/bar-post-mock bar-post"
+    "bar-post": "pnpm --filter @parking/bar-post-mock bar-post",
+    "payment-terminal": "pnpm --filter @parking/payment-terminal-mock start"
   },
   "keywords": [],
   "author": "",

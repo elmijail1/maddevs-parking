@@ -22,7 +22,7 @@ export function createTestApp() {
 }
 
 export async function resetDatabase() {
-  await prisma.$executeRaw`TRUNCATE "Parking", "Space", "Vehicle" CASCADE`;
+  await prisma.$executeRaw`TRUNCATE "Payment", "Parking", "Space", "Vehicle" CASCADE`;
   await prisma.space.createMany({
     data: spaceDisplayNames.map((displayName) => ({ displayName })),
   });
@@ -59,6 +59,15 @@ export async function createParking(
 export async function placeVehicle(displayName: string, regNumber: string, status: "booked" | "occupied") {
   await setSpace(displayName, status, regNumber);
   await createParking(displayName, regNumber, status === "occupied" ? "active" : "booked");
+}
+
+export function createPayment(
+  parkingId: string,
+  status: "pending" | "cancelled" | "failed" | "success",
+  createdAt = new Date(),
+  total = 500,
+) {
+  return prisma.payment.create({ data: { parkingId, status, createdAt, total } });
 }
 
 export async function fillSpaces(displayNames: string[], status: "booked" | "occupied") {

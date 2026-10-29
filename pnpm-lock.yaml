@@ -259,6 +259,15 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
 
+  payment-terminal-mock-app:
+    dependencies:
+      '@parking/shared':
+        specifier: workspace:*
+        version: link:../packages/shared
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+
 packages:
 
   '@babel/helper-string-parser@7.29.11':

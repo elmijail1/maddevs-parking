@@ -14,3 +14,7 @@ export const dayHours = {
 export const timezoneOffsetMinutes = 4 * 60;
 
 export const bookingExpirationMinutes = 15;
+
+export const paymentSessionTimeoutMinutes = 5;
+
+export const paymentResultGraceSeconds = 30;

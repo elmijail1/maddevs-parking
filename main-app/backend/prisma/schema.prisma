@@ -27,6 +27,13 @@ enum RateType {
   night
 }
 
+enum PaymentStatus {
+  pending
+  cancelled
+  failed
+  success
+}
+
 model Space {
   id             String      @id @default(uuid()) @db.Uuid
   displayName    String      @unique
@@ -58,8 +65,22 @@ model Parking {
   latestTotalUpdate DateTime      @db.Timestamptz(3)
   createdAt         DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+  payments          Payment[]
 
-  @@unique([spaceId], map: "parking_open_per_space_key", where: raw("status IN ('booked', 'active')"))
-  @@unique([vehicleRegNumber], map: "parking_open_per_vehicle_key", where: raw("status IN ('booked', 'active')"))
+  @@unique([spaceId], map: "parking_open_per_space_key", where: raw("(status = ANY (ARRAY['booked'::\"ParkingStatus\", 'active'::\"ParkingStatus\"]))"))
+  @@unique([vehicleRegNumber], map: "parking_open_per_vehicle_key", where: raw("(status = ANY (ARRAY['booked'::\"ParkingStatus\", 'active'::\"ParkingStatus\"]))"))
   @@index([vehicleRegNumber, status])
+}
+
+model Payment {
+  id        String        @id @default(uuid()) @db.Uuid
+  parkingId String        @db.Uuid
+  parking   Parking       @relation(fields: [parkingId], references: [id])
+  total     Int
+  status    PaymentStatus @default(pending)
+  createdAt DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@unique([parkingId], map: "payment_open_per_parking_key", where: raw("(status = ANY (ARRAY['pending'::\"PaymentStatus\", 'success'::\"PaymentStatus\"]))"))
+  @@index([status])
 }

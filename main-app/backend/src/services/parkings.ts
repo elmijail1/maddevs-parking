@@ -1,5 +1,6 @@
-import { getRateTypeAt } from "@parking/shared";
+import { calculateCharge, getRateTypeAt, lastRateBoundaryAtOrBefore } from "@parking/shared";
 import { prisma } from "../db";
+import type { Parking } from "../generated/prisma/client";
 
 export function parkingTimesFrom(activeSince: Date) {
   return {
@@ -7,6 +8,20 @@ export function parkingTimesFrom(activeSince: Date) {
     currentRate: getRateTypeAt(activeSince),
     latestRateChange: activeSince,
     latestTotalUpdate: activeSince,
+  };
+}
+
+export function refreshParkingTotals(
+  parking: Pick<Parking, "total" | "latestTotalUpdate" | "currentRate" | "latestRateChange">,
+  now: Date,
+) {
+  const { totalCents, chargedUntil } = calculateCharge(parking.latestTotalUpdate, now);
+  const currentRate = getRateTypeAt(now);
+  return {
+    total: parking.total + totalCents,
+    latestTotalUpdate: chargedUntil,
+    currentRate,
+    latestRateChange: currentRate === parking.currentRate ? parking.latestRateChange : lastRateBoundaryAtOrBefore(now),
   };
 }
 

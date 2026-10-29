@@ -29,7 +29,8 @@ Only the main app is built fully; keep the mocks as simple as possible.
 - `pnpm typecheck` – type-check all packages
 - `pnpm test` – run all tests (the backend's need the `db-test` container running). Don't pass file filters to it: it runs every package's `test` script with the same args, and packages without a match fail
 - `pnpm --filter @parking/backend test <file-substring>` / `-t "<test name>"` – run selected backend tests
-- `pnpm bar-post --reg XX000XX --direction in` – simulate a car at the bar post (needs the backend running)
+- `pnpm bar-post --reg XX000XX --direction in|out` – simulate a car at the bar post (needs the backend running; exits also need the payment terminal)
+- `pnpm payment-terminal` – start the payment terminal mock (stays running, type the payment result when a session arrives)
 - `pnpm --filter @parking/backend dev` – run the main backend with reload on change
 - `pnpm --filter @parking/backend db:migrate` – create and apply migrations
 - `pnpm --filter @parking/backend db:generate` – regenerate the Prisma client

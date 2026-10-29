@@ -30,3 +30,37 @@ export const newParkingRequestSchema = z.object({
   time: z.iso.datetime({ offset: true }),
 });
 export type NewParkingRequest = z.infer<typeof newParkingRequestSchema>;
+
+export const paymentStatusSchema = z.enum(["pending", "cancelled", "failed", "success"]);
+export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
+
+export const paymentResultStatusSchema = paymentStatusSchema.exclude(["pending"]);
+export type PaymentResultStatus = z.infer<typeof paymentResultStatusSchema>;
+
+export const newExitRequestSchema = z.object({
+  regNumber: regNumberSchema,
+});
+export type NewExitRequest = z.infer<typeof newExitRequestSchema>;
+
+export const newExitResponseSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("awaiting_payment"), paymentId: z.uuid(), total: z.number().int() }),
+  z.object({ status: z.literal("denied"), reason: z.enum(["no_active_parking", "terminal_unavailable"]) }),
+]);
+export type NewExitResponse = z.infer<typeof newExitResponseSchema>;
+
+export const paymentSessionRequestSchema = z.object({
+  paymentId: z.uuid(),
+  total: z.number().int().nonnegative(),
+});
+export type PaymentSessionRequest = z.infer<typeof paymentSessionRequestSchema>;
+
+export const paymentResultRequestSchema = z.object({
+  paymentId: z.uuid(),
+  status: paymentResultStatusSchema,
+});
+export type PaymentResultRequest = z.infer<typeof paymentResultRequestSchema>;
+
+export const paymentStatusResponseSchema = z.object({
+  status: paymentStatusSchema,
+});
+export type PaymentStatusResponse = z.infer<typeof paymentStatusResponseSchema>;

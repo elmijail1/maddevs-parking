@@ -9,6 +9,7 @@ const envSchema = z.object({
   TEST_DATABASE_URL: z.string().min(1).optional(),
   MAIN_APP_PORT: z.coerce.number().int().positive().default(3000),
   SERVICE_API_KEY: z.string().min(16),
+  PAYMENT_TERMINAL_URL: z.url(),
 });
 
 export const env = envSchema.parse(process.env);

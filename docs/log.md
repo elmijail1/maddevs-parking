@@ -1,4 +1,13 @@
 
+29.10. Step 3 (allowExit):
+- Added the charge calculation to the shared package: full minutes only, split at the 08:00/20:00 rate boundaries, plus money formatting, with unit tests.
+- Added refreshParkingTotals in the backend: an idempotent total refresh that the exit, the future cron job and user clicks will share.
+- Added the Payment model with the "one pending/successful payment per parking" partial index (migration `payments`), and rewrote the partial index conditions in Postgres' normalized form so migrations stay clean.
+- Added the exit routes: POST /api/new-exit, POST /api/payment-result, GET /api/payments/:paymentId (stale pending payments are cancelled when checked, a new car's payment takes priority).
+- Added 48 backend tests for the exit flow, payment results, polling, payment constraints and total refreshes (89 tests in total, all passing).
+- Added the payment terminal mock: a long-running process with a /sessions endpoint, a prompt for the result and a 5-minute timeout.
+- The bar post now handles exits: it shows the total, polls the payment status and opens or stays closed.
+
 28.10. Set up AI agent context:
 - AGENTS.md: agent working rules (no code without confirmation, no package installs, no Git) and pointers to context files
 - CLAUDE.md: refers to AGENTS.md
