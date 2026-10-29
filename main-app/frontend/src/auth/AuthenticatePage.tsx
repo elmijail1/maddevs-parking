@@ -1,8 +1,9 @@
 import { loginFormSchema, signupFormSchema, type AuthUser } from "@parking/shared";
-import { Alert, Button, InputAdornment, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Button, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
-import type { z } from "zod";
+import { useState, type ChangeEvent, type FormEvent } from "react";
+import { PasswordField } from "../components/PasswordField";
+import { collectErrors } from "../forms";
 import { AuthRequestError, currentUserQueryKey, logIn, signUp } from "./api";
 
 type Mode = "login" | "signup";
@@ -31,15 +32,6 @@ const serverErrorMessages: Record<string, { field?: string; message: string }> =
   invalid_request: { message: "Check the fields and try again." },
 };
 
-function collectErrors(error: z.ZodError) {
-  const errors: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const field = String(issue.path[0]);
-    errors[field] ??= issue.message;
-  }
-  return errors;
-}
-
 function AuthForm({ mode }: { mode: Mode }) {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -47,7 +39,6 @@ function AuthForm({ mode }: { mode: Mode }) {
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>({});
 
   const mutation = useMutation({
     mutationFn: (): Promise<AuthUser> => {
@@ -86,40 +77,23 @@ function AuthForm({ mode }: { mode: Mode }) {
   return (
     <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-2" aria-label={submitLabel}>
       {fields[mode].map((field) => {
-        const toggleName = "toggleName" in field ? field.toggleName : null;
-        const visible = Boolean(visibleFields[field.name]);
-        return (
-          <TextField
-            key={field.name}
-            id={`${mode}-${field.name}`}
-            label={field.label}
-            type={toggleName && visible ? "text" : field.type}
-            autoComplete={field.autoComplete}
-            value={values[field.name]}
-            onChange={(event) => {
-              setValues((current) => ({ ...current, [field.name]: event.target.value }));
-              setErrors(({ [field.name]: _, ...rest }) => rest);
-            }}
-            error={Boolean(errors[field.name])}
-            helperText={errors[field.name] ?? " "}
-            fullWidth
-            slotProps={{
-              input: {
-                endAdornment: toggleName && (
-                  <InputAdornment position="end">
-                    <Button
-                      size="small"
-                      aria-label={`${visible ? "Hide" : "Show"} ${toggleName}`}
-                      aria-pressed={visible}
-                      onClick={() => setVisibleFields((current) => ({ ...current, [field.name]: !visible }))}
-                    >
-                      {visible ? "Hide" : "Show"}
-                    </Button>
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
+        const props = {
+          id: `${mode}-${field.name}`,
+          label: field.label,
+          autoComplete: field.autoComplete,
+          value: values[field.name],
+          onChange: (event: ChangeEvent<HTMLInputElement>) => {
+            setValues((current) => ({ ...current, [field.name]: event.target.value }));
+            setErrors(({ [field.name]: _, ...rest }) => rest);
+          },
+          error: Boolean(errors[field.name]),
+          helperText: errors[field.name] ?? " ",
+          fullWidth: true,
+        };
+        return "toggleName" in field ? (
+          <PasswordField key={field.name} {...props} toggleName={field.toggleName} />
+        ) : (
+          <TextField key={field.name} {...props} type={field.type} />
         );
       })}
       {formError && <Alert severity="error">{formError}</Alert>}

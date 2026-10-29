@@ -6,6 +6,30 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 29.10. Step 7 (profile page)
+
+### Changing the email or password needs the current password
+- **Decision:** `PATCH /api/profile/email` takes `{ email, currentPassword }`, `PATCH /api/profile/password` takes `{ currentPassword, newPassword }`; the user id comes only from the token. A wrong current password gets `403 wrong_password` (not `401`, which means "not logged in" and sends the user to `/authenticate`). An email used by another account gets `409 email_taken`, shown as "Email already in use, try another". The new values follow the signup rules. The password editor also asks to repeat the new password (checked on the frontend).
+- **Why:** without it, anyone at an unlocked, logged-in browser could take over the account.
+- **The password isn't shown:** only its hash is stored, so outside the editor it's a fixed `••••••••`, and the editor starts with empty fields, each with Show/Hide. The implementation plan was updated to match.
+
+### Saving, errors and editing
+- **One editor at a time:** while one is open, the other Edit button is disabled.
+- **While saving,** a backdrop with a spinner covers the page. Requests time out after 10 s (`AbortSignal.timeout`).
+- **A failed save** (server error, timeout, no connection) hides the profile and shows "Your changes couldn't be saved. Please reload the page." with a Reload button that refetches the user and closes the editor, so the values from before the edit are shown. A wrong current password or a taken email are shown under their fields instead, with the editor still open.
+- **Editors live in component state,** so leaving the page or reloading discards them.
+- **A `401` from any mutation** (e.g. an expired token) logs the user out on the frontend, like queries already did.
+
+### Logging out and where login leads
+- **Decision:** `POST /api/auth/logout` clears the cookie. The frontend then removes every cached query and marks the user as logged out, so `RequireAuth` sends them to `/authenticate`. Logging in always leads to `/spaces`.
+- **Why:** remembering the requested page (step 6) raced with logging out: the guard saw the logged-out user first and remembered `/profile`, so the next login reopened the profile. Making the logout's own redirect win would need timing tricks, and the plan only asks for `/spaces`.
+- **Other sessions** stay logged in after a password change (JWT trade-off); logging them out is in [future-ideas.md](future-ideas.md).
+
+### Header and shared password field
+- **Decision:** protected pages share an `AppLayout` with an MUI app bar: "Parking Diagram" (`/spaces`) and "My Profile" (`/profile`), the current one highlighted (`aria-current`). The Show/Hide password input became a `PasswordField` component, used by the auth forms and the profile editors.
+
+---
+
 ## 29.10. Step 6 (user authentication)
 
 ### A JWT in an httpOnly cookie
@@ -28,7 +52,7 @@ The baseline technical and business decisions made before development started ar
 
 ### What's protected and how the frontend handles it
 - **Backend:** `GET /api/spaces` and the SSE stream need the cookie. Device routes keep using the API key.
-- **Frontend:** the current user comes from `GET /api/auth/me` through TanStack Query. A `RequireAuth` layout route sends logged-out users to `/authenticate`, remembering the page they asked for; a `GuestOnly` route sends logged-in users from `/authenticate` to that page (or `/spaces`). Any query that gets `401` (e.g. an expired token) sets the current user to logged out, which redirects to `/authenticate`.
+- **Frontend:** the current user comes from `GET /api/auth/me` through TanStack Query. A `RequireAuth` layout route sends logged-out users to `/authenticate`; a `GuestOnly` route sends logged-in users from `/authenticate` to `/spaces`, as the plan says. (At first the page the user had asked for was remembered and reopened after login; it was dropped in step 7, see there.) Any query that gets `401` (e.g. an expired token) sets the current user to logged out, which redirects to `/authenticate`.
 - **The plan's `/authenticated`** in the step 6 test cases is read as `/authenticate`.
 
 ---

@@ -103,8 +103,8 @@ Now that we have authentication, we can add the page that has the opposite actio
 - URL: /profile.
 - It's only accessible for authenticated users. The URL is the same for all users, the right profile data is loaded thanks to the stored user ID (in an authentication token most likely). We must make sure that the sender of the request to achieve a certain user's ID is the same user that's requesting it – this is for safety reasons to achieve users getting someone else's data.
 - Profile's layout: a simple page with three main elements: email, password, and log out.
-- - Email: displayed in full, has a label (Your email), and an Edit button. Clicking Edit lets you edit the email – then you can click Save. For simplicity, we won't make it more sophisticated than this. Clicking "Save" updates the DB entry. Before we receive a confirmation, there's a loading element shown + the page's data isn't accessible. If there's an error or a timeout, an error is shown with the suggestion to reload the page. There's also a Cancel button to exit the editor without saving changes.
-- - Password: displayed as asterisks. Also has a label (Your password), and an Edit button. Clicking Edit lets you edit your password. There's a Show button to show the real password instead of asteirsks – obviously, it flips to "Hide" after clicking Show. Also, there's a Save button that works similarly to that of the email field. And there's also a Cancel button that exits the editor without saving changes.
+- - Email: displayed in full, has a label (Your email), and an Edit button. Clicking Edit lets you edit the email and asks for your current password – then you can click Save. The new email must not be used by another user: if it is, the change fails with the message "Email already in use, try another". For simplicity, we won't make it more sophisticated than this. Clicking "Save" updates the DB entry. Before we receive a confirmation, there's a loading element shown + the page's data isn't accessible. If there's an error or a timeout, an error is shown with the suggestion to reload the page. There's also a Cancel button to exit the editor without saving changes.
+- - Password: displayed as asterisks (a fixed placeholder: only a hash of the password is stored, so the real one can't be shown). Also has a label (Your password), and an Edit button. Clicking Edit opens three empty fields: the current password, the new password, and its confirmation. Each has a Show button that shows what's typed instead of asterisks – obviously, it flips to "Hide" after clicking Show. Also, there's a Save button that works similarly to that of the email field. And there's also a Cancel button that exits the editor without saving changes.
 - - The same validations apply to both as they would on sign up.
 - - Log out button: logs the user out and automatically redirects them to /authenticate. All protected routes start redirecting the user to /authenticate until they authenticate again.
 - Since we now have two pages, we need a header navigation too: Parking Diagram (/spaces) and My Profile (/profile).
@@ -115,6 +115,8 @@ Now that we have authentication, we can add the page that has the opposite actio
 - - 4. If the server returns an error, retrying a data load shows email and password values before edition.
 - - 5. If you switch to another page (/spaces e.g.) or reload the page while editing any field, the changes are discarded and the editor isn't active.
 - - 6. You can't change email or password to an empty string. You also can't make it longer than allowed, neither can you enter charcaters other than Latin characters and numbers.
+- - 7. You can't change your email to one that another user already uses: the change fails with the message "Email already in use, try another" and the email stays the same.
+- - 8. You can't change your email or password without entering the right current password.
 
 
 - 8. My cars page

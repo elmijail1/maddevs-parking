@@ -90,9 +90,9 @@ describe("logging in", () => {
     expect(requestsTo("POST /api/auth/login")).toEqual([{ email: "driver@example.com", password: validPassword }]);
   });
 
-  it("takes the user back to the page they originally opened", async () => {
+  it("takes the user to /spaces even if they first opened another protected page", async () => {
     mockApi({ "POST /api/auth/login": () => json(200, { user: testUser }) });
-    const { router } = await openAuthenticatePage("/spaces");
+    const { router } = await openAuthenticatePage("/profile");
 
     await fillIn("Log in", { Email: testUser.email, Password: validPassword });
     await submit("Log in");

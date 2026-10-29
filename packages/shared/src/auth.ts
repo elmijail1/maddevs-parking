@@ -52,6 +52,30 @@ export const signupFormSchema = signupRequestSchema
     message: "Passwords don't match",
   });
 
+const currentPasswordSchema = z
+  .string()
+  .min(1, "Enter your current password")
+  .max(passwordMaxLength, `Password must be at most ${passwordMaxLength} characters`);
+
+export const changeEmailRequestSchema = z.object({
+  email: emailSchema,
+  currentPassword: currentPasswordSchema,
+});
+export type ChangeEmailRequest = z.infer<typeof changeEmailRequestSchema>;
+
+export const changePasswordRequestSchema = z.object({
+  currentPassword: currentPasswordSchema,
+  newPassword: signupPasswordSchema,
+});
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
+
+export const changePasswordFormSchema = changePasswordRequestSchema
+  .extend({ confirmPassword: z.string().min(1, "Confirm your new password") })
+  .refine((form) => form.newPassword === form.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords don't match",
+  });
+
 export const authUserSchema = z.object({
   id: z.uuid(),
   email: z.string(),
@@ -64,6 +88,6 @@ export const authUserResponseSchema = z.object({
 export type AuthUserResponse = z.infer<typeof authUserResponseSchema>;
 
 export const authErrorSchema = z.object({
-  error: z.enum(["invalid_request", "invalid_credentials", "email_taken", "unauthorized"]),
+  error: z.enum(["invalid_request", "invalid_credentials", "email_taken", "wrong_password", "unauthorized"]),
 });
 export type AuthError = z.infer<typeof authErrorSchema>["error"];

@@ -5,7 +5,7 @@ import { Prisma } from "../generated/prisma/client";
 import { clearAuthCookie, requireUser, setAuthCookie } from "../plugins/user-auth";
 import { hashPassword, verifyAgainstNothing, verifyPassword } from "../services/passwords";
 
-const toAuthUser = ({ id, email }: { id: string; email: string }): AuthUserResponse => ({ user: { id, email } });
+export const toAuthUser = ({ id, email }: { id: string; email: string }): AuthUserResponse => ({ user: { id, email } });
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/auth/signup", async (request, reply) => {
@@ -41,6 +41,11 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
     await setAuthCookie(reply, user.id);
     return toAuthUser(user);
+  });
+
+  app.post("/auth/logout", async (_request, reply) => {
+    clearAuthCookie(reply);
+    return reply.code(204).send();
   });
 
   app.get("/auth/me", { onRequest: requireUser }, async (request, reply) => {

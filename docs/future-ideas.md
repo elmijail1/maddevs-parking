@@ -19,3 +19,8 @@
 - Currently anyone can try as many email/password combinations as they like: nothing slows down repeated login or signup attempts.
 - `@fastify/rate-limit` on `/api/auth/login` and `/api/auth/signup` could limit attempts per IP (e.g. 5 per minute) and answer `429` after that. A stricter version would also count failed attempts per email.
 - Possible benefit: brute-forcing passwords and mass-creating accounts become impractical.
+
+## Logging out other sessions after a password change
+- Login tokens are JWTs that the server doesn't keep track of: changing the password doesn't log out other browsers or devices, their tokens stay valid until they expire (14 days).
+- A `passwordChangedAt` field on the user, checked on every protected request against the token's issue time, would reject tokens issued before the change. It costs a database lookup per request.
+- Possible benefit: if someone else got into the account, changing the password locks them out at once.

@@ -1,6 +1,8 @@
 import { Navigate, type RouteObject } from "react-router";
+import { AppLayout } from "./AppLayout";
 import { AuthenticatePage } from "./auth/AuthenticatePage";
 import { authenticatePath, GuestOnly, RequireAuth } from "./auth/route-guards";
+import { ProfilePage } from "./profile/ProfilePage";
 import { SpacesPage } from "./spaces/SpacesPage";
 
 export const routes: RouteObject[] = [
@@ -12,7 +14,13 @@ export const routes: RouteObject[] = [
     element: <RequireAuth />,
     children: [
       { path: "/", element: <Navigate to="/spaces" replace /> },
-      { path: "/spaces", element: <SpacesPage /> },
+      {
+        element: <AppLayout />,
+        children: [
+          { path: "/spaces", element: <SpacesPage /> },
+          { path: "/profile", element: <ProfilePage /> },
+        ],
+      },
     ],
   },
 ];

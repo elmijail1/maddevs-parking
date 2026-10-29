@@ -17,6 +17,9 @@
 - Added the /authenticate page (Log in / Sign up tabs, frontend validation, server errors), route guards for /spaces and /authenticate, and the redirect to /authenticate on any 401. 22 new frontend tests (33 in total). Checked signup, login and the protected routes through the Vite proxy.
 - Fixed the CSS layer order so Tailwind's reset no longer removes MUI's input borders; made the auth form's submit button narrower and taller.
 - Added Show/Hide buttons to every password field of the auth forms (each field separately, hidden again after switching tabs), with 3 tests (36 frontend tests in total).
+- Agreed on the step 7 (profile page) design and updated implementation-plan.md: the password can't be shown (only its hash is stored), the current password is required for both changes, the new password is confirmed, "Email already in use, try another" and the current-password check became test cases 7 and 8. Added "Logging out other sessions after a password change" to future-ideas.md.
+- Added POST /api/auth/logout, PATCH /api/profile/email and PATCH /api/profile/password, with shared schemas. 18 new backend tests (141 in total).
+- Added the header (Parking Diagram, My Profile), the /profile page (email and password editors, one at a time, saving overlay, reload on failure, logout) and a shared PasswordField. Logging in now always leads to /spaces (remembering the requested page raced with logout). 25 new frontend tests (61 in total). Checked the profile requests and logout through the Vite proxy.
 
 28.10. Set up AI agent context:
 - AGENTS.md: agent working rules (no code without confirmation, no package installs, no Git) and pointers to context files

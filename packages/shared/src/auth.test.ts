@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emailSchema, loginFormSchema, signupFormSchema, signupPasswordSchema } from "./auth";
+import { changePasswordFormSchema, emailSchema, loginFormSchema, signupFormSchema, signupPasswordSchema } from "./auth";
 
 const firstError = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
   result.error?.issues[0]?.message;
@@ -59,6 +59,24 @@ describe("signupFormSchema", () => {
     const result = signupFormSchema.safeParse({ email: "a@b.co", password: "abcdef1!", confirmPassword: "abcdef1?" });
     expect(result.error?.issues).toEqual([
       expect.objectContaining({ path: ["confirmPassword"], message: "Passwords don't match" }),
+    ]);
+  });
+});
+
+describe("changePasswordFormSchema", () => {
+  it("applies the signup rules to the new password and requires the current one and a matching confirmation", () => {
+    const issues = (form: object) => changePasswordFormSchema.safeParse(form).error?.issues.map((i) => i.message) ?? [];
+
+    expect(issues({ currentPassword: "old", newPassword: "abcdef1!", confirmPassword: "abcdef1!" })).toEqual([]);
+    expect(issues({ currentPassword: "", newPassword: "abcdef1!", confirmPassword: "abcdef1!" })).toEqual([
+      "Enter your current password",
+    ]);
+    expect(issues({ currentPassword: "old", newPassword: "abcdefgh", confirmPassword: "abcdefgh" })).toEqual([
+      "Password must include a digit",
+      "Password must include a special character",
+    ]);
+    expect(issues({ currentPassword: "old", newPassword: "abcdef1!", confirmPassword: "abcdef1?" })).toEqual([
+      "Passwords don't match",
     ]);
   });
 });
