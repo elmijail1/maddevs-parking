@@ -14,6 +14,10 @@
 - Added the shared day/night rate function (getRateTypeAt) with unit tests.
 - Added backend integration tests against the test database: the 5 planned step 1 cases plus already-inside, two concurrency cases, regNumber normalization, invalid bodies and API keys (20 tests in total, all passing).
 - Added the bar post mock: a one-shot Commander CLI (`pnpm bar-post --reg ... --direction in|out`) that calls /api/new-entrance and prints whether the bar opens.
+- Added step 2, POST /api/new-parking (handleNewParking): activates the booked parking and occupies the space, handles the inconsistent cases from the plan plus entrances without any booking and repeated calls. The bar post now calls it after opening.
+- Moved the "claim a vacant space" logic into one shared function used by both endpoints.
+- Added 21 tests for new-parking and the open-parking constraints, with log checks (41 tests in total, all passing). Checked the whole entrance flow end to end with the real server and the bar post CLI.
+- Agreed on most of the step 3 (allowExit) design: the terminal answers asynchronously, the bar post polls for the result, full minutes only, timeout fallback, a new car's payment takes priority over a stale pending one, one pending/successful payment per parking.
 
 27.10. Prepared context files:
 - assignment.md

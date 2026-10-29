@@ -5,6 +5,7 @@
 - Do not install packages. Recommend them instead and provide the exact installation commands for the user to run.
 - Do not commit or touch Git in any way (no commits, branches, staging, stashes, resets, etc.) unless the user explicitly asks.
 - Write as few comments as possible, in code and config files alike. Add one only when something truly can't be understood without it.
+- When starting a server yourself for a check, point it at the test database (`DATABASE_URL` = `TEST_DATABASE_URL`) so the user's development data stays untouched, and stop it by its port afterwards (`kill $(lsof -t -iTCP:<port> -sTCP:LISTEN)`). Killing the `pnpm`/`tsx` wrapper leaves the Node process running.
 
 ## Project context
 Read these before working on the project:

@@ -95,7 +95,41 @@ The baseline technical and business decisions made before development started ar
 ### Bar post mock details
 - **Decision:** `pnpm bar-post --reg <regNumber> --direction in|out`, built with Commander. The mock doesn't validate the registration number itself: it passes whatever "the camera read" to the main app, so the main app's validation can be tried out by hand. Requests time out after 5 seconds. Any error, timeout or non-2xx response shows "The bar post isn't working". The env is read from the root `.env` with Node's built-in `process.loadEnvFile`, so there's no dotenv dependency. `out` prints "not supported yet" until `/api/new-exit` exists, and the follow-up `/api/new-parking` call is added in step 2.
 
+### /api/new-parking (step 2): how the cases are handled
+- **Decision:** the bar post sends `{ regNumber, time }` after opening. The main app finds the car's open parking (`booked` or `active`; the index allows at most one) and acts on it:
+  - **booked parking, its space booked for this car:** the parking becomes `active` with `activeSince`/`latestRateChange`/`latestTotalUpdate` set to the entrance time and the rate for that time; the space becomes `occupied`.
+  - **booked parking, its space vacant or already occupied by this car:** same, plus a non-critical log.
+  - **booked parking, its space held by another car:** the parking is `cancelled`, the space is left alone, critical log (as planned; the car stays in the lot without a parking until support resolves it).
+  - **no parking, but a space is booked or occupied for this car:** an `active` parking is created on that space, non-critical log.
+  - **no parking and no space for the car** (the General flow's 3b/3c): the first vacant space is claimed with the same atomic update as in new-entrance, and occupied right away, non-critical log. If there's no vacant space: critical log and a 409.
+  - **the parking is already active** (e.g. the bar post sent the call twice): nothing changes, non-critical log.
+- **Malformed input:** a missing, malformed or future time (more than 1 minute ahead, to allow for clock skew) is replaced with the current time, non-critical log. An invalid registration number gets a 400 and a critical log.
+- **Responses:** 204 for every handled case and 409 when there's no space. The bar post only prints errors.
+- **Plan case 6 (several booked parkings for one car) isn't handled**, because the one-open-parking-per-car index makes it impossible. Tests prove that the database rejects it instead.
+- **Why:** follows the implementation plan. The extra cases make repeated or out-of-order calls safe.
+- **Known gap:** activation checks that the parking is still `booked` and fails with a 500 if it isn't. Once booking expiry and cancellation exist (steps 6 and 8), an expiry that lands at the same moment as an entrance must be looked at again.
+
+### Step 3 (allowExit) design: the terminal answers asynchronously
+- **Decision:** the main app sends `{ paymentId, total }` to the terminal, which accepts it right away. The terminal posts the result (`success`/`cancelled`/`failed`) to the main app later. The main app answers the bar post's `/api/new-exit` right away with "awaiting payment".
+  - **The bar post learns the result by polling:** it asks the main app every 2 seconds, for up to the payment session timeout. The timeout (`paymentSessionTimeoutMinutes = 5`) is in the shared config, so all apps use the same value.
+  - **Timeout safety net:** the terminal reports `cancelled` after 5 minutes without input. As a fallback (e.g. the terminal crashed), the main app treats a payment still `pending` after the timeout plus a short margin as `cancelled` whenever it's checked.
+  - **Terminal unreachable** when the main app sends the total: the payment is `failed`, with a critical log, and the bar post shows that the terminal isn't working.
+  - **Same car calls new-exit while its payment is pending:** the existing payment is returned, and no new one is created.
+  - **A new car arrives while another car's payment is pending** (e.g. the first car backed away without cancelling): the new car has priority. The old pending payment is `cancelled`, with a non-critical log, the terminal drops the old session and starts the new one, and any late result for the old payment is ignored.
+  - **The terminal mock becomes a long-running process:** a small server on its port that receives sessions, plus a prompt to type the status.
+- **Why:** more realistic than holding requests open for minutes. Polling is the simplest way for a mock bar post to get the result.
+- **Alternatives:** holding the requests open until the payment ends (simplest, less realistic); long polling, or a callback server in the bar post (rejected as overengineering).
+
+### Charging full minutes only
+- **Decision:** only full minutes are charged (10:01:00 to 11:00:30 is 59 minutes).
+
+### One pending or successful payment per parking
+- **Decision:** a partial unique index on `Payment(parkingId) WHERE status IN ('pending', 'success')`, like the parking indexes.
+
+### Shared booking logic
+- **Decision:** "claim the first vacant space with the atomic update and create a parking" lives in one function (`claimVacantSpace`) used by both new-entrance (books the space) and new-parking (occupies it right away).
+
 ### Backend testing approach
 - **Decision:** integration tests run through `app.inject` against the real test Postgres (`db-test`). Vitest's global setup applies the migrations with `prisma migrate deploy`. Each test truncates the tables and recreates the 6 spaces, and test files run one at a time.
-- **Why:** the main risks (concurrent bookings, the partial unique indexes) live in the database and can't be checked with mocks. The tests include two concurrency cases: two cars racing for the last space, and 10 cars arriving at an empty 6-space lot.
+- **Why:** the main risks (concurrent bookings, the partial unique indexes) live in the database and can't be checked with mocks. The tests include two concurrency cases: two cars racing for the last space, and 10 cars arriving at an empty 6-space lot. Log expectations (critical and non-critical) are checked by sending the app's logs into an in-memory list in tests.
 - **Day/night rate logic** (`getRateTypeAt`) lives in the shared package, so the frontend can use it later, and has its own unit tests around the 08:00 and 20:00 boundaries in UTC+4.

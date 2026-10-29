@@ -24,3 +24,9 @@ export const newEntranceResponseSchema = z.discriminatedUnion("allowed", [
   z.object({ allowed: z.literal(false), reason: z.enum(["no_available_spaces", "vehicle_already_inside"]) }),
 ]);
 export type NewEntranceResponse = z.infer<typeof newEntranceResponseSchema>;
+
+export const newParkingRequestSchema = z.object({
+  regNumber: regNumberSchema,
+  time: z.iso.datetime({ offset: true }),
+});
+export type NewParkingRequest = z.infer<typeof newParkingRequestSchema>;

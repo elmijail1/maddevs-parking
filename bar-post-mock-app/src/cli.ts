@@ -19,7 +19,11 @@ async function postToMainApp(path: string, body: object) {
   });
 }
 
-async function handleEntrance(regNumber: string) {
+function printError(error: unknown) {
+  console.error(error instanceof Error ? error.message : error);
+}
+
+async function askToLetIn(regNumber: string) {
   const response = await postToMainApp("/api/new-entrance", { regNumber });
   if (!response.ok) {
     console.error(`Main app responded with ${response.status}: ${await response.text()}`);
@@ -29,18 +33,34 @@ async function handleEntrance(regNumber: string) {
   return result.allowed ? messages.open : messages[result.reason];
 }
 
+async function reportEntrance(regNumber: string) {
+  const response = await postToMainApp("/api/new-parking", { regNumber, time: new Date().toISOString() });
+  if (!response.ok) {
+    console.error(`Main app couldn't register the entrance (${response.status}): ${await response.text()}`);
+  }
+}
+
+async function handleEntrance(regNumber: string) {
+  let message = messages.notWorking;
+  try {
+    message = await askToLetIn(regNumber);
+  } catch (error) {
+    printError(error);
+  }
+  console.log(message);
+
+  if (message === messages.open) {
+    await reportEntrance(regNumber).catch(printError);
+  }
+}
+
 async function handlePassthrough(regNumber: string, direction: Direction) {
   console.log(`Car ${regNumber} is approaching from the ${direction === "in" ? "outside" : "inside"}`);
   if (direction === "out") {
     console.log(messages.exitNotSupported);
     return;
   }
-  try {
-    console.log(await handleEntrance(regNumber));
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    console.log(messages.notWorking);
-  }
+  await handleEntrance(regNumber);
 }
 
 await new Command()
