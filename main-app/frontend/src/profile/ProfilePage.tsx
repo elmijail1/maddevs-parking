@@ -2,11 +2,12 @@ import { changeEmailRequestSchema, changePasswordFormSchema, type AuthUser } fro
 import { Alert, Backdrop, Button, CircularProgress, Paper, TextField, Typography } from "@mui/material";
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent, type ReactNode } from "react";
+import { ApiRequestError } from "../api-request";
 import { currentUserQueryKey } from "../auth/api";
 import { useCurrentUser } from "../auth/use-current-user";
 import { PasswordField } from "../components/PasswordField";
 import { collectErrors } from "../forms";
-import { changeEmail, changePassword, logOut, ProfileRequestError } from "./api";
+import { changeEmail, changePassword, logOut } from "./api";
 
 type EditorName = "email" | "password";
 
@@ -36,7 +37,7 @@ function useEditorForm<T extends Record<string, string>>(initial: T) {
 }
 
 function handleSaveError(error: Error, setErrors: (errors: Record<string, string>) => void, onFailed: () => void) {
-  if (!(error instanceof ProfileRequestError)) {
+  if (!(error instanceof ApiRequestError)) {
     return;
   }
   const known = fieldErrorMessages[error.code];
@@ -245,7 +246,7 @@ export function ProfilePage() {
         </>
       )}
 
-      <Backdrop open={saving} className="z-50">
+      <Backdrop open={saving} sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}>
         <CircularProgress aria-label="Saving" />
       </Backdrop>
     </main>

@@ -3,6 +3,7 @@ import { Link, Outlet, useMatch } from "react-router";
 
 const links = [
   { to: "/spaces", label: "Parking Diagram" },
+  { to: "/cars", label: "My Cars" },
   { to: "/profile", label: "My Profile" },
 ];
 

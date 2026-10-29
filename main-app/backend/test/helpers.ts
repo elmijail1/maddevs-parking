@@ -23,7 +23,7 @@ export function createTestApp() {
 }
 
 export async function resetDatabase() {
-  await prisma.$executeRaw`TRUNCATE "Payment", "Parking", "Space", "Vehicle", "User" CASCADE`;
+  await prisma.$executeRaw`TRUNCATE "Payment", "Parking", "Space", "UserVehicle", "Vehicle", "User" CASCADE`;
   await prisma.space.createMany({
     data: spaceDisplayNames.map((displayName) => ({ displayName })),
   });

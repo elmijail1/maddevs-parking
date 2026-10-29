@@ -6,6 +6,27 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 29.10. Step 8 (My cars page)
+
+### UserVehicle: one row per user and car
+- **Decision:** `UserVehicle` (`userId`, `vehicleRegNumber`, `status` active/inactive, `displayName`, `latestStatusChange`) with foreign keys to `User` (cascade on delete) and to `Vehicle.regNumber`, unique on `(userId, vehicleRegNumber)`. Removing a car sets it inactive, clears its display name and moves `latestStatusChange`; re-adding it reactivates the same row with a fresh date and the given name or "New car". The list shows active rows, latest `latestStatusChange` first.
+- **Why:** the plan's case 6 (re-adding reuses the link), and a foreign key is safe here because a vehicle always exists before it's linked (unlike parkings, which don't reference `Vehicle`).
+
+### Adding a car
+- **Decision:** `POST /api/cars` finds or creates the vehicle, then compares the VIN and certificate number. A mismatch answers `409 vehicle_mismatch` with one message ("The VIN or certificate number doesn't match this car.") that doesn't say which value is wrong, so they can't be guessed one at a time. A car already active in the list answers `409 already_added`. Two simultaneous adds of the same new car are safe: a unique violation is treated as "the vehicle exists" / "already added".
+- **Routes:** `GET /api/cars`, `POST /api/cars`, `PATCH /api/cars/:id` (display name), `DELETE /api/cars/:id` (deactivate), all behind the login. `:id` is the link's id, scoped to the user from the token, so another user's car answers `404`.
+
+### Validation (shared)
+- **Registration and certificate numbers:** 3–15 characters, **VIN:** 5–17, Latin letters and digits only, trimmed and uppercased (so case doesn't matter for matching).
+- **Display name:** trimmed, repeated spaces squeezed, 1–20 characters, Latin letters, digits, spaces, apostrophes (`'` and `’`) and hyphens. The plan's "only Latin characters and numbers" was widened since the default "New car" has a space; the plan was updated.
+
+### The page
+- **Add car dialog:** its own component (`AddCarDialog`) so step 9's booking dialog can reuse it. Save, Cancel, the cross, Escape and clicking outside behave as the plan says; closing discards the progress; it can't be closed while saving. Server errors are shown inside it.
+- **Cards:** display name, registration number, "Added 29 Oct 2026" (the date in the lot's UTC+4 time zone, `formatLotDate` in the shared package), Edit and Delete. Editing works like on the profile page (one editor at a time, disabling the other cards' buttons and Add car; saving overlay; reload on failure). Delete asks for a confirmation.
+- **Shared request helper:** `sendRequest` (10 s timeout, `401` → logged out, error codes) is now used by the profile and cars pages. The saving overlays now sit above the app bar too, so the header can't be clicked mid-save.
+
+---
+
 ## 29.10. Step 7 (profile page)
 
 ### Changing the email or password needs the current password

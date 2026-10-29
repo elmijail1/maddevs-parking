@@ -27,6 +27,11 @@ enum RateType {
   night
 }
 
+enum UserVehicleStatus {
+  active
+  inactive
+}
+
 enum PaymentStatus {
   pending
   cancelled
@@ -45,19 +50,37 @@ model Space {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique
   passwordHash String
-  createdAt    DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  vehicles     UserVehicle[]
 }
 
 model Vehicle {
-  id                            String   @id @default(uuid()) @db.Uuid
-  regNumber                     String   @unique
+  id                            String        @id @default(uuid()) @db.Uuid
+  regNumber                     String        @unique
   vin                           String
   registrationCertificateNumber String
-  createdAt                     DateTime @default(now()) @db.Timestamptz(3)
+  createdAt                     DateTime      @default(now()) @db.Timestamptz(3)
+  users                         UserVehicle[]
+}
+
+model UserVehicle {
+  id                 String            @id @default(uuid()) @db.Uuid
+  userId             String            @db.Uuid
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleRegNumber   String
+  vehicle            Vehicle           @relation(fields: [vehicleRegNumber], references: [regNumber])
+  status             UserVehicleStatus @default(active)
+  displayName        String?
+  latestStatusChange DateTime          @default(now()) @db.Timestamptz(3)
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@unique([userId, vehicleRegNumber])
+  @@index([userId, status, latestStatusChange])
 }
 
 model Parking {

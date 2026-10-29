@@ -20,6 +20,9 @@
 - Agreed on the step 7 (profile page) design and updated implementation-plan.md: the password can't be shown (only its hash is stored), the current password is required for both changes, the new password is confirmed, "Email already in use, try another" and the current-password check became test cases 7 and 8. Added "Logging out other sessions after a password change" to future-ideas.md.
 - Added POST /api/auth/logout, PATCH /api/profile/email and PATCH /api/profile/password, with shared schemas. 18 new backend tests (141 in total).
 - Added the header (Parking Diagram, My Profile), the /profile page (email and password editors, one at a time, saving overlay, reload on failure, logout) and a shared PasswordField. Logging in now always leads to /spaces (remembering the requested page raced with logout). 25 new frontend tests (61 in total). Checked the profile requests and logout through the Vite proxy.
+- Agreed on the step 8 (My cars page) details: display names with spaces, apostrophes and hyphens, uppercase identifiers, one mismatch message, already-added error, removal clears the name and asks for confirmation, dates in UTC+4. Updated implementation-plan.md to match.
+- Added the UserVehicle model (migration `user_vehicles`), shared car schemas and `formatLotDate` (19 tests), and GET/POST /api/cars, PATCH/DELETE /api/cars/:id. 30 new backend tests (171 in total).
+- Added the /cars page (Add car dialog, cards, inline name editor, delete confirmation) and the "My Cars" header link; moved the request helper into a shared `sendRequest`; the saving overlays now cover the header. 28 new frontend tests (89 in total). Checked the cars API through the Vite proxy with two users.
 
 28.10. Set up AI agent context:
 - AGENTS.md: agent working rules (no code without confirmation, no package installs, no Git) and pointers to context files
