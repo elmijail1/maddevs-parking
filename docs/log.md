@@ -12,6 +12,11 @@
 - Agreed on the step 5 design (SSE for live updates, no relatedVehicle in public space data, Vite + React + React Router + MUI + Tailwind) and set up the frontend package; the user installed its dependencies.
 - Added GET /api/spaces and the SSE stream GET /api/spaces/events: the whole list on connect and after every change from new-entrance, new-parking and space-vacant-again, sent only when it actually changed. 5 backend tests (90 backend tests in total).
 - Added the frontend: the parking lot diagram at /spaces (two rows of spaces across a driveway, loading and error states, the space details dialog with rates, the booking dialog with regNumber validation and a non-working "Book for ..." button), live updates through SSE into the TanStack Query cache. 11 frontend tests, including the plan's two cases. Checked the stream through the Vite proxy with the real backend and the bar post.
+- Agreed on the step 6 (user authentication) design: a 14-day JWT in an httpOnly cookie, scrypt password hashes, shared validation rules, protected spaces routes. Added rate limiting to future-ideas.md. The user installed `@fastify/jwt` and `@fastify/cookie`.
+- Added the User model (migration `users`), the shared auth schemas (22 tests), and POST /api/auth/signup, POST /api/auth/login, GET /api/auth/me; GET /api/spaces and the SSE stream now need a logged-in user. 33 new backend tests (123 in total).
+- Added the /authenticate page (Log in / Sign up tabs, frontend validation, server errors), route guards for /spaces and /authenticate, and the redirect to /authenticate on any 401. 22 new frontend tests (33 in total). Checked signup, login and the protected routes through the Vite proxy.
+- Fixed the CSS layer order so Tailwind's reset no longer removes MUI's input borders; made the auth form's submit button narrower and taller.
+- Added Show/Hide buttons to every password field of the auth forms (each field separately, hidden again after switching tabs), with 3 tests (36 frontend tests in total).
 
 28.10. Set up AI agent context:
 - AGENTS.md: agent working rules (no code without confirmation, no package installs, no Git) and pointers to context files

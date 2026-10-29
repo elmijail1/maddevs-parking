@@ -11,7 +11,7 @@ if (!testDatabaseUrl) {
 
 export default defineConfig({
   test: {
-    env: { DATABASE_URL: testDatabaseUrl },
+    env: { DATABASE_URL: testDatabaseUrl, JWT_SECRET: "test-jwt-secret-test-jwt-secret-1234", NODE_ENV: "test" },
     globalSetup: ["./test/global-setup.ts"],
     fileParallelism: false,
   },

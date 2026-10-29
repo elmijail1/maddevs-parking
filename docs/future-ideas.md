@@ -14,3 +14,8 @@
 - Currently all three are only checked within the app's DB – if the car with this registration number already exists in the DB, the other 2 must match. If they don't, an error is shown.
 - The external lookup could be useful here: it would refer to some national DB that stores data for vehicles inside the country. It would make the check stricter.
 - Possible benefit: the car's data will be verified as real which adds safety, since people won't be able to just make up the VIN and certificate numbers.
+
+## Rate limiting for login and signup
+- Currently anyone can try as many email/password combinations as they like: nothing slows down repeated login or signup attempts.
+- `@fastify/rate-limit` on `/api/auth/login` and `/api/auth/signup` could limit attempts per IP (e.g. 5 per minute) and answer `429` after that. A stricter version would also count failed attempts per email.
+- Possible benefit: brute-forcing passwords and mass-creating accounts become impractical.

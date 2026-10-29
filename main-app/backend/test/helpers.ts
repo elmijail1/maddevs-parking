@@ -1,4 +1,5 @@
 import { getRateTypeAt, type SpaceStatus } from "@parking/shared";
+import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app";
 import { prisma } from "../src/db";
 import { spaceDisplayNames } from "../src/lot";
@@ -22,7 +23,7 @@ export function createTestApp() {
 }
 
 export async function resetDatabase() {
-  await prisma.$executeRaw`TRUNCATE "Payment", "Parking", "Space", "Vehicle" CASCADE`;
+  await prisma.$executeRaw`TRUNCATE "Payment", "Parking", "Space", "Vehicle", "User" CASCADE`;
   await prisma.space.createMany({
     data: spaceDisplayNames.map((displayName) => ({ displayName })),
   });
@@ -74,4 +75,15 @@ export async function fillSpaces(displayNames: string[], status: "booked" | "occ
   for (const [index, displayName] of displayNames.entries()) {
     await placeVehicle(displayName, `OTHER${index}`, status);
   }
+}
+
+export const testPassword = "Secret12!";
+
+export async function signUp(app: FastifyInstance, email = "driver@example.com", password = testPassword) {
+  const response = await app.inject({ method: "POST", url: "/api/auth/signup", payload: { email, password } });
+  const cookie = response.cookies.find((c) => c.name === "token");
+  if (!cookie) {
+    throw new Error(`Signup failed: ${response.statusCode} ${response.body}`);
+  }
+  return `token=${cookie.value}`;
 }

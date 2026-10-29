@@ -83,3 +83,137 @@ A frontend feature at /spaces. While it must be available only to authenticated 
 - success criteria cases to test:
 - - 1. The parking lot is empty (all spaces are vacant, i.e. green and clickable). A car enters, one space is assigned to it – it becomes red and unclickable. 
 - - 2. The parking lot is full (all spaces are occupied, i.e. red and unclickable). A car exits, one space becomes vacant – it becomes green and clickable.
+
+- 6. User authentication
+Now that we have the parking layout diagram, we need to add user-exclusive capabilities. First of all, we need the authentication system and page (/authenticate).
+- One page for two actions: log in and sign up. What's shown is controlled by a state. The state is changed with a tab switch: one tab for log in, one for sign up.
+- The login has 2 text inputs, the signup has three (confirm your password).
+- Logging in sends data to the server to check the correctness of the credentials. The password is not stored as plain text – it's safely cyphered. The input is validated first at the frontend (empty fields are errors, so are emails that don't match an email pattern and passwords shorter than 8 characters), then at the backend (to make sure they are of the right type and length (1-30 characters)).
+- Signup performs similar frontend and backend validations, it just also compares two passwords. Obviously, a user can't be created for an email that another user already uses, so that is a backend check. Passwords must be 8-30 characters long, they must include one Latin character, one number, and one special character (nothing fancy, just the ordinary things allowed) – other characters aren't allowed.
+- On successful authentication, the user is taken to the diagram layout (/spaces). Now that we have authentication, you can't access /spaces without it.
+- success criteria cases to test:
+- - 1. /spaces redirects to /authenticate if the user isn't authenticated
+- - 2. /authenticate automatically redirects the user to /spaces on successful authentication
+- - 3. /authenticate redirects to /spaces for authenticated users
+- - 4. Signing up creates a new user object and stores its password as a cypher.
+- - 5. Entering passwords and emails that fail to validate won't let you create an account or log in.
+
+- 7. Profile page
+Now that we have authentication, we can add the page that has the opposite action – logging out. It also features more settings.
+- URL: /profile.
+- It's only accessible for authenticated users. The URL is the same for all users, the right profile data is loaded thanks to the stored user ID (in an authentication token most likely). We must make sure that the sender of the request to achieve a certain user's ID is the same user that's requesting it – this is for safety reasons to achieve users getting someone else's data.
+- Profile's layout: a simple page with three main elements: email, password, and log out.
+- - Email: displayed in full, has a label (Your email), and an Edit button. Clicking Edit lets you edit the email – then you can click Save. For simplicity, we won't make it more sophisticated than this. Clicking "Save" updates the DB entry. Before we receive a confirmation, there's a loading element shown + the page's data isn't accessible. If there's an error or a timeout, an error is shown with the suggestion to reload the page. There's also a Cancel button to exit the editor without saving changes.
+- - Password: displayed as asterisks. Also has a label (Your password), and an Edit button. Clicking Edit lets you edit your password. There's a Show button to show the real password instead of asteirsks – obviously, it flips to "Hide" after clicking Show. Also, there's a Save button that works similarly to that of the email field. And there's also a Cancel button that exits the editor without saving changes.
+- - The same validations apply to both as they would on sign up.
+- - Log out button: logs the user out and automatically redirects them to /authenticate. All protected routes start redirecting the user to /authenticate until they authenticate again.
+- Since we now have two pages, we need a header navigation too: Parking Diagram (/spaces) and My Profile (/profile).
+- success criteria cases to test:
+- - 1. /profile redirects to /authenticate if the user isn't authenticated
+- - 2. Clicking the logout button redirects to /authenticate and prevents from further access to protected routes until the user logs back in.
+- - 3. Changing the email and password does change them on the server.
+- - 4. If the server returns an error, retrying a data load shows email and password values before edition.
+- - 5. If you switch to another page (/spaces e.g.) or reload the page while editing any field, the changes are discarded and the editor isn't active.
+- - 6. You can't change email or password to an empty string. You also can't make it longer than allowed, neither can you enter charcaters other than Latin characters and numbers.
+
+
+- 8. My cars page
+This is where you can add and remove associated cars when authenticated.
+- URL: /cars
+- At first, when there are no associated cars, the user only sees the button "Add car" (it remains at the top of the page after cars are added). Clicking it opens a dialog window that prompts you to enter three required values: registration number, VIN, certificate number – and one optional: display name. There are three buttons: Save, Cancel (both at the bottom), and a cross button (top right). Cancel and a cross button do the same thing – they hide the window and discard the progress. Clicking off the dialog window does the same (should work for all dialog windows across the app).
+- Clicking "Save" first runs frontend validation: all three required fields must have values, and they should pass a RegEx check: registration number and certificate number must be from 3 characters to 15, VIN number is expected to be from 5 to 17 characters. All must only allow Latin characters and numbers. Then the data goes to the server where it's checked whether an entry with this car already exists (there can't be more than one car with one unique registration number), if there's already a car with this registration number, its VIN and certificate numbers are checked – if they are wrong, the user gets an error and nothing is created. If the vehicle object with this regNumber exists and the VIN and certificate number are correct, a new UserVehicle object is created. If there's no vehicle object for this regNumber, a new one is created, VIN and certificate number are added without a check (that's a huge simpliciation, of course), and a UserVehicle object is created right after.
+- If the display name hasn't been specified, a placeholder is automatically added: New car. It's saved in the database as well.
+- If the car is successfully added, it's displayed as a card in the /cars below the Add new button. The card shows the display name, the registration number, the date added (since its latest addition to the list, not since its first addition to the list – there's a described latestStatusChange field for that in initial-description). It also has two buttons: Edit and Delete.
+- Edit lets you change the display name. The functionality is the same as with email / password on the Profile change. Limitations: only Latin characters and numbers, 1-20 characters.
+- Delete doesn't really delete anything: it just changes the status of the related UserVehicle to inactive.
+- Only active UserVehicle relations are displayed here. We know the user ID from the token, so we search for UserVehicle with this user's ID and with status: active. We list them here from latest to earliest (based on latestStatusChange).
+- success criteria cases to test:
+- - 1. /cars redirects to /authenticate if the user isn't authenticated
+- - 2. Adding a car creates a new Vehicle object with the passed data if there wasn't one before and a UserVehicle object connecting the current user and the vehicle.
+- - 3. Adding a car creates only a new UserVehicle object if there already is a Vehicle object and the three required values match those in it.
+- - 4. Adding a car doesn't create anything if the Vehicle object with the specified registration number already exists but the other two fields don't match.
+- - 5. Deleting a car from the list doesn't delete the Vehicle object – it only changes the status of the UserVehicle object. The "deleted" car also doesn't appear in the car list.
+- - 6. Deleting a car and re-adding it doesn't create a new Vehicle object or a UserVehicle object – it finds the existing Vehicle, checks the required fields, if they match, it looks up a UserVehicle object before creating a new one, and changes status and latestStatusChange. The car is now visible again in the list and is the first car in it.
+- - 7. Editing the car's display name and reloading the page or navigating elsewhere and coming back discards the edition progress and the editor isn't active when you come back.
+- - 8. You can't edit a few car cards simultaneously. You can only edit one at a time – others' buttons are disabled while an editor is active for one car.
+
+
+- 9. Booking from the app and seeing differently spaces associated with your car
+Now that we have all the frontend we need, we can finally get to bookings through the app's display.
+- An authenticated user can click an available space, then click the Book this space button (there's also a Close button to close the window), and get to enter their car's registration number. They have 2 options: choose a car from the list of added cars or add a new one. Adding a new one works the same as on the My car page. After adding a car the user is taken back to the dialog where they must choose a car and see the same thing: choose a car from the list or add a new one.
+- After choosing a car, the user can click "Book for [car number]". There's also a "Back" button that takes the user to the previous window. If the user clicks "Book for [car number]", the client sends a request to do the following: change the selected space's status to booked and add the vehicle's registration number to relatedVehicle, and create a parking with status: booked for this space and this vehicle. The space must be checked beforehand: someone could've booked it a second ago, after the user opened the dialog window for this space but before they clicked Book for this car.
+- If the space suddenly turns out to be booked or occupied (i.e. unavailable), the user is shown a respective message ("This space is unavailable, please try another") and upon clicking "OK" they are taken to /spaces with no dialog windows open and with the newly unavailable car space marked as red and unclickable.
+- If the user succeeds at booking, they are shown a success message ("You've just booked space A1 for XXOOOXX! Please enter the parking lot within 15 minutes before your booking expires" and the button OK). Clicking OK takes the user to /spaces without an open dialog window, and the space they've booked is now filled with yellow and is pulsating.
+- User-related occupied spaces are highlighted not with just the data coming from the usual diagram data fetch – it comes from checking whether the user has associated cars with active or booked parkings. They both are highlighted equally (but show different windows on click, for now we're only working on booked spaces).
+- Clicking the space now shows the booking expiration time ("This space is booked for XXOOOXX. The booking expires at xx:xx"). There's also the Cancel button.
+- For now Cancelling doesn't work. The expiration time doesn't affect anything yet – the parking and the space remain in the booked status so far.
+- success criteria cases to test:
+- - 1. A user without associated cars doesn't have anything on the list to choose from, so they can only see the Add new car button.
+- - 2. After adding a new car the user is taken back to the car selection window.
+- - 3. Booking a space successfully: a space is updated properly (status and relatedVehcile), a parking is created with the right values in its fields, the user is taken back to the diagram, and the right space is highlighted with yellow and is clickable.
+- - 4. Reloading a page or navigating elsewhere and returning still shows the highlighted space you booked for your car.
+
+
+- 10. Cancelling the booking manually
+Now we need to add booking cancellation.
+- The user opens the diagram (/spaces), clicks a highlighted space they booked, click "Cancel booking".
+- This does the following: the space is updated (status: vacant, relatedVehicle: undefined), the parking is updated (status: cancelled, time-related values are nullified).
+- On success, the user is shown a message "Booking cancelled" and the OK button. Clicking OK takes the user back to the layout diagram, but now the previously booked space isn't highlighted, it's just green.
+- success criteria cases to test:
+- - 1. A user cancels a booking and both related objects get updated properly.
+- - 2. A user cancels a booking, comes back to the diagram, and the previously booked space isn't highlighted anymore, and it's available (green and clickable).
+
+- 11. Booking behavior as time elapses and automatic cancellation
+Now we must make use of time-related mechanisms that control bookings.
+- The user has booked the car and hasn't showed up. 10 minutes before the expiration (i.e. 5 minutes after the booking started in our case), an email is sent to the user's email.
+- The email service must be mocked: we just send a request and get a positive response after a 1-second timeout or something.
+- This email dispatch must happen at a certain scheduled moment, so we'll need Cron or something similar to do that. We know the exact dispatch time from the beginning: 10 minutes before the expiration time. Since the duration of a booking isn't long (just 15 minutes) and we don't have many spaces (just 6), it will be an overkill to have some interval-based Cron workers that would check if it's time to dispatch a newsletter. So we can just schedule the dispatch for each booking indivdually upon creation of a booking.
+- As soon as we changed the space's status to booked and created a related parking, we also schedule a worker at "expiration time - 10 minutes".
+- The contents of the email don't matter.
+- We deliberately aren't making a separate data model for it for simpliciation, although I would make one for a real-life case.
+- The email worker ran, now it must schedule another worker: the one that actually cancels the booking at the expiration time. It must be scheduled right at the expiration time taken from the related parking object. What it does: changes the space's status to vacant and nullifies the relatedVehicle, then cancels the booking and nullifies its time-related fields.
+- The server sends an update on this change just as it would with any other space update.
+- success criteria cases to test:
+- - 1. A user booked a space but hasn't showed up for 5 minutes – an email was sent to them (we got a response from the mocked email service).
+- - 2. A user booked a space but hasn't showed up for 15+ minutes – the booking got cancelled automatically and they now don't see any highlighted space in the diagram.
+
+- 11. Tracing a parking
+How does a user interact with the space and the parking when their parking is active?
+- When the parking is active, the user sees the related space as highlighted (yellow and pulsating). It looks the same as a booked parking from the diagram.
+- Clicking it shows another window: it shows the total charge, since when the parking is active, and what the current rate is.
+- Each opening of this window triggers a total calculation with the respective update of the parking object.
+- success criteria cases to test:
+- - 1. A user clicks a space occupied by their car and sees the current total and rate
+
+- 12. UI for parking history
+Another page: /history. Must also be added to the header. Only available to authenticated users.
+- Shows a list of cards (similar to those for cars in My cars) with parkings.
+- Each card: Car's display name, date, car number, total, status.
+- By default: 10 latest parkings. No sorting or limit options in the client (for simplicity).
+- The list has pagination: it's shown at the top and bottom of the page (the same element placed at two places for convenience). It shows numbers for pages with 1 for the initial page + arrows: left to go to a previous page, right to go to a next one.
+- Clicking a card with history does nothing, since all the info is already shown in the card. A user can't edit or delete these cards, so they can just view them in the list form.
+- What parkings must be shown? Ideally it should work like this: only parkings for active associated cars with the date after the lastStatusChanged in the related UserVehicle. That is, if the user adds a car, then removes it, the history won't show related parkings. If the user adds the car back, only new parkings associated to it will be shown. If the car the user has added already had parkings before they added it, they won't see them.
+- success criteria cases to test:
+- - 1. /history redirects to /authenticate for unauthenticated users
+- - 2. Up to 10 latest parkings are shown to the user on the initial load of this page.
+- - 3. Pagination appears and works correctly for 11 and more parkings.
+- - 4. Removing a car affects the parking list: associated parkings aren't shown anymore
+- - 5. Returning the car back doesn't bring back parkings made before the removal – but new ones are shown
+
+- 13. Managing multiple bookings and occupations
+The user can have multiple cars on the list.
+- They can book multiple spaces for different cars. This should work properly: both spaces are highlighted, clicking both shows the expected dialog and allows cancelling, both make it clear which car is associated (the registration number).
+- They can have one space book while another occupied. Both spaces are highlighted, clicking them shows the expected dialog (booking for one, occupation for the other), the former allows cancelling, the latter triggers a total update.
+- They can have two or more spaces occupied by associated cars too.
+- success criteria cases to test:
+- - 1. Booking two or more spaces from one account works as expected: multiple spaces become highlighted, show the expected dialog on click, can be cancelled, and the related objects get updated respectively (spaces and parkings)
+- - 2. Occupying two or more spaces from one account works as expected: multiple spaces become highlighted, show the expected dialog on click, trigger a total and rate update, and the related objects get updated respectively (spaces and parkings)
+- - 3. Having some spaces booked and some occupied from the same account works as expected: multiple spaces become highlighted, show the expected dialog on click, can be cancelled OR trigger a total and rate update, and the related objects get updated respectively (spaces and parkings)
+
+
+- 14. Concurrency control
+The task explicitly requires to handle multiple tabs. So we must make sure the app works stably for that.
+- success criteria cases to test:
+- - 1. Booking a space in one tab updates the space in both tabs (two different users): in the one it was booked it becomes highlighted, in the other – unavailable.
+- - 2. Booking a space in one tab updates the space in both tabs (one user with two tabs): both tabs now have the car highlighted.
+- - 3. Cancelling a booking in one tab updates the space in both (two different users): in both the space becomes available.

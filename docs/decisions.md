@@ -6,6 +6,33 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 29.10. Step 6 (user authentication)
+
+### A JWT in an httpOnly cookie
+- **Decision:** after signup or login, the backend signs a JWT (`@fastify/jwt`) with only the user id (`sub`) and puts it in the `token` cookie (`@fastify/cookie`): `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` in production. The token and the cookie live **14 days**, with no refresh tokens. Protected routes (`requireUser`) only accept the token from the cookie, never from an `Authorization` header. `GET /api/auth/me` also looks the user up, so a deleted user loses access at once (and their cookie is cleared).
+- **Why:** no extra table or lookup per request. The cookie is out of reach of page scripts (XSS), the browser sends it with `EventSource` by itself, and `SameSite=Lax` keeps other sites from sending requests with it (CSRF). The data behind the login isn't valuable enough to need short-lived tokens.
+- **Trade-off:** logging out (step 7) deletes the cookie, but a token copied before that stays valid until it expires, since the server keeps no list of tokens.
+- **Alternatives:** database sessions (revocable at once, but a table and a lookup per request); a JWT in `localStorage` with an `Authorization` header (readable by scripts, and `EventSource` can't send headers).
+
+### Passwords are hashed with scrypt from Node's `crypto`
+- **Decision:** `scrypt` with a random 16-byte salt per password (N=16384, r=8, p=1, 64-byte key), stored as `scrypt$N$r$p$salt$hash`, so the parameters can change later without breaking old hashes. Checking uses `timingSafeEqual`. A login for an unknown email still checks a dummy hash, so the response time doesn't reveal which emails exist.
+- **Why:** a slow, salted password hash with no package and no native build.
+- **Alternatives:** the `argon2` package (a bit stronger, but compiles native code).
+
+### Validation rules (shared by the frontend and the backend)
+- **Email:** trimmed and lowercased (so one account per address in any letter case), at most 100 characters, Zod's email pattern.
+- **Signup password:** 8–30 characters, at least one Latin letter, one digit and one special character; only Latin letters, digits and printable ASCII symbols (no spaces).
+- **Login:** the frontend checks the email pattern and a password of at least 8 characters; the backend only checks types and lengths (password 1–30), then the credentials.
+- **Errors:** wrong credentials always get the same "Wrong email or password" answer (`401 invalid_credentials`), whether the email exists or not. Signup answers `409 email_taken`, since the plan requires telling the user.
+- **Rate limiting** of login and signup is out of scope, recorded in [future-ideas.md](future-ideas.md).
+
+### What's protected and how the frontend handles it
+- **Backend:** `GET /api/spaces` and the SSE stream need the cookie. Device routes keep using the API key.
+- **Frontend:** the current user comes from `GET /api/auth/me` through TanStack Query. A `RequireAuth` layout route sends logged-out users to `/authenticate`, remembering the page they asked for; a `GuestOnly` route sends logged-in users from `/authenticate` to that page (or `/spaces`). Any query that gets `401` (e.g. an expired token) sets the current user to logged out, which redirects to `/authenticate`.
+- **The plan's `/authenticated`** in the step 6 test cases is read as `/authenticate`.
+
+---
+
 ## 29.10. Step 5 (parking lot diagram)
 
 ### Live updates through SSE
@@ -20,7 +47,7 @@ The baseline technical and business decisions made before development started ar
 ### Frontend stack
 - **Decision:** Vite + React with React Router (the diagram at `/spaces`), MUI for components (dialogs, buttons, the spinner), Tailwind for layout, TanStack Query for server state. The files are written by hand instead of with `create vite`, to match the other packages. Vite proxies `/api` to the backend, so there's no CORS and the SSE stays same-origin.
 - **Spaces are plain rectangles** in two rows facing each other across a driveway. Rows are grouped by the first letter of the display name.
-- **MUI and Tailwind together:** MUI's styles go into their own CSS layer (`StyledEngineProvider enableCssLayer` and `@layer theme, base, mui, components, utilities`), so Tailwind utilities always win and Tailwind's reset doesn't fight MUI. MUI's `CssBaseline` isn't used.
+- **MUI and Tailwind together:** MUI's styles go into their own CSS layer (`StyledEngineProvider enableCssLayer`), and the layer order `theme, base, mui, components, utilities` is declared through MUI's `GlobalStyles`, so Tailwind utilities win over MUI and MUI wins over Tailwind's reset. The order has to come from `GlobalStyles`, not `index.css`: MUI inserts its styles at the top of `<head>`, and layers are ordered by first appearance, so otherwise the reset (`border: 0`) removed the input outlines. MUI's `CssBaseline` isn't used.
 
 ### Implementation details of the live updates
 - **Changes are announced from the device routes** that can change spaces (new-entrance, new-parking, space-vacant-again), after the service finishes, so the transaction is committed. Future booking, cancelling and expiry code will announce the same way.

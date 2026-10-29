@@ -10,6 +10,8 @@ const envSchema = z.object({
   MAIN_APP_PORT: z.coerce.number().int().positive().default(3000),
   SERVICE_API_KEY: z.string().min(16),
   PAYMENT_TERMINAL_URL: z.url(),
+  JWT_SECRET: z.string().min(32),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
 export const env = envSchema.parse(process.env);

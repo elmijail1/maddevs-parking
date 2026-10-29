@@ -1,10 +1,13 @@
 import { spacesEventName, type SpacesResponse } from "@parking/shared";
 import type { FastifyPluginAsync } from "fastify";
+import { requireUser } from "../plugins/user-auth";
 import { listSpaces, subscribeToSpaces } from "../services/spaces";
 
 const heartbeatIntervalMs = 25_000;
 
 export const spaceRoutes: FastifyPluginAsync = async (app) => {
+  app.addHook("onRequest", requireUser);
+
   app.get("/spaces", async (): Promise<SpacesResponse> => listSpaces());
 
   app.get("/spaces/events", (request, reply) => {

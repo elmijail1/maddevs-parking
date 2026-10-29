@@ -2,10 +2,11 @@ import { spacesEventName, spacesResponseSchema } from "@parking/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "../src/db";
 import { env } from "../src/env";
-import { createTestApp, placeVehicle, resetDatabase } from "./helpers";
+import { createTestApp, placeVehicle, resetDatabase, signUp } from "./helpers";
 
 const { app } = createTestApp();
 let baseUrl: string;
+let cookie: string;
 const openStreams: AbortController[] = [];
 
 function postDevice(url: string, payload: object) {
@@ -15,7 +16,7 @@ function postDevice(url: string, payload: object) {
 async function openSpacesStream() {
   const controller = new AbortController();
   openStreams.push(controller);
-  const response = await fetch(`${baseUrl}/api/spaces/events`, { signal: controller.signal });
+  const response = await fetch(`${baseUrl}/api/spaces/events`, { signal: controller.signal, headers: { cookie } });
   const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
 
@@ -59,6 +60,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await resetDatabase();
+  cookie = await signUp(app);
 });
 
 afterEach(() => {
@@ -71,11 +73,11 @@ afterAll(async () => {
 });
 
 describe("GET /api/spaces", () => {
-  it("returns every space sorted by name without the related vehicle and without an API key", async () => {
+  it("returns every space sorted by name without the related vehicle", async () => {
     await placeVehicle("A2", "XX000XX", "occupied");
     await placeVehicle("B1", "YY000YY", "booked");
 
-    const response = await app.inject({ method: "GET", url: "/api/spaces" });
+    const response = await app.inject({ method: "GET", url: "/api/spaces", headers: { cookie } });
 
     expect(response.statusCode).toBe(200);
     const { spaces } = response.json();
@@ -83,6 +85,19 @@ describe("GET /api/spaces", () => {
     expect(statuses(spaces)).toMatchObject({ A1: "vacant", A2: "occupied", B1: "booked" });
     expect(Object.keys(spaces[0]).sort()).toEqual(["displayName", "id", "status"]);
     expect(response.body).not.toContain("XX000XX");
+  });
+});
+
+describe("authentication", () => {
+  it.each([
+    ["no token", {}],
+    ["a forged token", { cookie: "token=not-a-jwt" }],
+    ["the device API key", { "x-api-key": env.SERVICE_API_KEY }],
+  ])("rejects the spaces and the stream with %s", async (_, headers) => {
+    for (const url of ["/api/spaces", "/api/spaces/events"]) {
+      const response = await app.inject({ method: "GET", url, headers });
+      expect(response.statusCode).toBe(401);
+    }
   });
 });
 
