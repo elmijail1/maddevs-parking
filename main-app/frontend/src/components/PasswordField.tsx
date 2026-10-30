@@ -1,3 +1,4 @@
+import { passwordMaxLength } from "@parking/shared";
 import { Button, InputAdornment, TextField, type TextFieldProps } from "@mui/material";
 import { useState } from "react";
 
@@ -8,6 +9,7 @@ export function PasswordField({ toggleName, ...props }: TextFieldProps & { toggl
       {...props}
       type={visible ? "text" : "password"}
       slotProps={{
+        htmlInput: { maxLength: passwordMaxLength },
         input: {
           endAdornment: (
             <InputAdornment position="end">

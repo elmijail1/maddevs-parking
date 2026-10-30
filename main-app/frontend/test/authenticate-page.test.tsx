@@ -153,6 +153,15 @@ describe("logging in", () => {
     expect(password).toHaveAttribute("type", "password");
   });
 
+  it("doesn't let the email or the password get longer than their limits", async () => {
+    await openAuthenticatePage();
+
+    await fillIn("Log in", { Email: "a".repeat(120), Password: "p".repeat(40) });
+
+    expect(form("Log in").getByLabelText("Email")).toHaveValue("a".repeat(100));
+    expect(form("Log in").getByLabelText("Password")).toHaveValue("p".repeat(30));
+  });
+
   it("clears a field's error once it's edited", async () => {
     await openAuthenticatePage();
     await submit("Log in");

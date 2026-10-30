@@ -1,4 +1,13 @@
-import { addCarRequestSchema, defaultCarDisplayName, maxCarsPerUser, type Car } from "@parking/shared";
+import {
+  addCarRequestSchema,
+  carDisplayNameMaxLength,
+  carRegNumberMaxLength,
+  certificateNumberMaxLength,
+  defaultCarDisplayName,
+  maxCarsPerUser,
+  vinMaxLength,
+  type Car,
+} from "@parking/shared";
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField } from "@mui/material";
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
@@ -7,10 +16,10 @@ import { collectErrors } from "../forms";
 import { addCar, addCarToCache } from "./api";
 
 const fields = [
-  { name: "regNumber", label: "Registration number" },
-  { name: "vin", label: "VIN" },
-  { name: "certificateNumber", label: "Registration certificate number" },
-  { name: "displayName", label: "Display name" },
+  { name: "regNumber", label: "Registration number", maxLength: carRegNumberMaxLength },
+  { name: "vin", label: "VIN", maxLength: vinMaxLength },
+  { name: "certificateNumber", label: "Registration certificate number", maxLength: certificateNumberMaxLength },
+  { name: "displayName", label: "Display name", maxLength: carDisplayNameMaxLength },
 ] as const;
 
 type FieldName = (typeof fields)[number]["name"];
@@ -89,6 +98,7 @@ function AddCarForm({ onClose, onAdded }: { onClose: () => void; onAdded: (car: 
             }
             required={field.name !== "displayName"}
             autoFocus={field.name === "regNumber"}
+            slotProps={{ htmlInput: { maxLength: field.maxLength } }}
             margin="dense"
             fullWidth
           />

@@ -122,11 +122,6 @@ describe("changing the email", () => {
   it.each([
     ["an empty email", { "New email": " " }, { "New email": "Enter your email" }],
     ["an invalid email", { "New email": "new@" }, { "New email": "Enter a valid email" }],
-    [
-      "a too long email",
-      { "New email": `${"a".repeat(89)}@example.com` },
-      { "New email": "Email must be at most 100 characters" },
-    ],
   ])("doesn't send %s or a missing current password", async (_, values, messages) => {
     await openProfile();
 
@@ -139,6 +134,16 @@ describe("changing the email", () => {
     }
     expect(form.getByLabelText("Current password")).toHaveAccessibleDescription("Enter your current password");
     expect(requestsTo("PATCH /api/profile/email")).toHaveLength(0);
+  });
+
+  it("doesn't let the email or the password get longer than their limits", async () => {
+    await openProfile();
+
+    const form = await openEmailEditor();
+    await type(form, { "New email": "a".repeat(120), "Current password": "p".repeat(40) });
+
+    expect(form.getByLabelText("New email")).toHaveValue("a".repeat(100));
+    expect(form.getByLabelText("Current password")).toHaveValue("p".repeat(30));
   });
 
   it("discards the changes on Cancel", async () => {

@@ -186,7 +186,7 @@ Now we must make use of time-related mechanisms that control bookings.
 
 - 12. Tracing a parking
 How does a user interact with the space and the parking when their parking is active?
-- When the parking is active, the user sees the related space as highlighted (yellow and pulsating). It looks the same as a booked parking from the diagram.
+- When the parking is active, the user sees the related space as highlighted: filled with green, with a green border, and pulsating (a booked space is yellow), so booked and occupied spaces can be told apart at a glance.
 - Clicking it shows another window: it shows since when the parking is active, how many full minutes have been counted (shown as e.g. "1 hour 11 minutes" past 60 minutes), the total charge, and what the current rate is (with a short note on when the next rate starts, e.g. "night rate from 20:00").
 - Each opening of this window triggers a total calculation with the respective update of the parking object. The update only goes through if nobody else updated the parking in the meantime (otherwise it's recalculated from the newer values), so that two simultaneous updates can't move the total backwards.
 - A Cron worker also runs every hour and updates all active parkings: their totals and, if needed, their rates.
@@ -210,7 +210,7 @@ Another page: /history. Must also be added to the header. Only available to auth
 
 - 14. Managing multiple bookings and occupations
 The user can have multiple cars on the list.
-- They can book multiple spaces for different cars. This should work properly: both spaces are highlighted, clicking both shows the expected dialog and allows cancelling, both make it clear which car is associated (the registration number).
+- They can book multiple spaces for different cars. This should work properly: both spaces are highlighted, clicking both shows the expected dialog and allows cancelling, both make it clear which car is associated: every highlighted space shows the car's display name with its registration number under it.
 - They can have one space book while another occupied. Both spaces are highlighted, clicking them shows the expected dialog (booking for one, occupation for the other), the former allows cancelling, the latter triggers a total update.
 - They can have two or more spaces occupied by associated cars too.
 - success criteria cases to test:

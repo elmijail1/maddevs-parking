@@ -14,16 +14,25 @@ export function SpaceTile({
   onSelectMine: (parking: MyParking) => void;
 }) {
   if (myParking) {
-    const state =
-      myParking.status === "booked" ? `booked for ${myParking.regNumber}` : `${myParking.regNumber} is parked here`;
+    const parked = myParking.status === "active";
+    const state = parked ? `${myParking.regNumber} is parked here` : `booked for ${myParking.regNumber}`;
+    const colors = parked
+      ? "border-green-600 bg-green-300 text-green-950"
+      : "border-yellow-500 bg-yellow-300 text-yellow-900";
     return (
       <button
         type="button"
         aria-label={`${space.displayName}, ${state}`}
-        className={`${tileClassName} animate-pulse cursor-pointer border-yellow-500 bg-yellow-300 text-yellow-900`}
+        className={`${tileClassName} animate-pulse cursor-pointer flex-col gap-1 px-1 ${colors}`}
         onClick={() => onSelectMine(myParking)}
       >
         {space.displayName}
+        <span aria-hidden className="w-full truncate text-xs font-medium" title={myParking.carName}>
+          {myParking.carName}
+        </span>
+        <span aria-hidden className="w-full break-all text-xs font-normal">
+          {myParking.regNumber}
+        </span>
       </button>
     );
   }

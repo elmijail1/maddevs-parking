@@ -212,7 +212,7 @@ describe("adding a car", () => {
   it.each([
     [{}, { reg: "Enter the registration number", vin: "Enter the VIN", cert: "Enter the certificate number" }],
     [
-      { reg: "AB", vin: "1HGC", cert: "C".repeat(16) },
+      { reg: "AB", vin: "1HGC", cert: "CC" },
       { reg: "Must be 3 to 15 characters", vin: "Must be 5 to 17 characters", cert: "Must be 3 to 15 characters" },
     ],
     [
@@ -227,10 +227,6 @@ describe("adding a car", () => {
       { reg: newCar.regNumber, vin: newCar.vin, cert: newCar.certificateNumber, name: "Jeep #1" },
       { name: "Use only Latin letters, digits, spaces, apostrophes and hyphens" },
     ],
-    [
-      { reg: newCar.regNumber, vin: newCar.vin, cert: newCar.certificateNumber, name: "x".repeat(21) },
-      { name: "Must be at most 20 characters" },
-    ],
   ])("doesn't send invalid values: %j", async (values, messages) => {
     await openCars([]);
 
@@ -243,6 +239,19 @@ describe("adding a car", () => {
       expect(addForm().getByLabelText(labels[key as keyof typeof labels])).toHaveAccessibleDescription(message);
     }
     expect(requestsTo("POST /api/cars")).toHaveLength(0);
+  });
+
+  it("doesn't let any field get longer than its limit", async () => {
+    await openCars([]);
+    await openAddDialog();
+
+    await fillAddForm({ reg: "R".repeat(20), vin: "V".repeat(20), cert: "C".repeat(20), name: "N".repeat(25) });
+
+    const length = (label: RegExp) => (addForm().getByLabelText(label) as HTMLInputElement).value.length;
+    expect(length(/^Registration number/)).toBe(15);
+    expect(length(/^VIN/)).toBe(17);
+    expect(length(/^Registration certificate number/)).toBe(15);
+    expect(length(/^Display name/)).toBe(20);
   });
 
   it.each([
@@ -303,7 +312,6 @@ describe("editing a display name", () => {
 
   it.each([
     ["", "Enter a display name"],
-    ["x".repeat(21), "Must be at most 20 characters"],
     ["Van #2", "Use only Latin letters, digits, spaces, apostrophes and hyphens"],
   ])("doesn't send the name %j", async (value, message) => {
     await openCars();
@@ -318,6 +326,17 @@ describe("editing a display name", () => {
 
     expect(name).toHaveAccessibleDescription(message);
     expect(requestsTo("PATCH /api/cars/00000000-0000-4000-8000-000000000c01")).toHaveLength(0);
+  });
+
+  it("doesn't let the name get longer than 20 characters", async () => {
+    await openCars();
+
+    await userEvent.click(card("AA111AA").getByRole("button", { name: "Edit AA111AA" }));
+    const name = card("AA111AA").getByLabelText("Display name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "x".repeat(25));
+
+    expect(name).toHaveValue("x".repeat(20));
   });
 
   it("allows editing only one car at a time", async () => {

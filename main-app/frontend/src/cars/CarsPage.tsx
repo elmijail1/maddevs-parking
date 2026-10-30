@@ -1,4 +1,4 @@
-import { formatLotDate, updateCarRequestSchema, type Car } from "@parking/shared";
+import { carDisplayNameMaxLength, formatLotDate, updateCarRequestSchema, type Car } from "@parking/shared";
 import {
   Backdrop,
   Button,
@@ -65,6 +65,7 @@ function NameEditor({ car, onDone, onFailed }: { car: Car; onDone: () => void; o
       <TextField
         id={`car-name-${car.id}`}
         label="Display name"
+        slotProps={{ htmlInput: { maxLength: carDisplayNameMaxLength } }}
         value={displayName}
         onChange={(event) => {
           setDisplayName(event.target.value);

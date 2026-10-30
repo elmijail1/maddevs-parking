@@ -14,16 +14,21 @@ function vehicleIdentifierSchema(name: string, min: number, max: number) {
     .regex(/^[A-Z0-9]*$/, "Use only Latin letters and digits");
 }
 
-export const carRegNumberSchema = vehicleIdentifierSchema("registration number", 3, 15);
-export const vinSchema = vehicleIdentifierSchema("VIN", 5, 17);
-export const certificateNumberSchema = vehicleIdentifierSchema("certificate number", 3, 15);
+export const carRegNumberMaxLength = 15;
+export const vinMaxLength = 17;
+export const certificateNumberMaxLength = 15;
+export const carDisplayNameMaxLength = 20;
+
+export const carRegNumberSchema = vehicleIdentifierSchema("registration number", 3, carRegNumberMaxLength);
+export const vinSchema = vehicleIdentifierSchema("VIN", 5, vinMaxLength);
+export const certificateNumberSchema = vehicleIdentifierSchema("certificate number", 3, certificateNumberMaxLength);
 
 export const carDisplayNameSchema = z
   .string()
   .trim()
   .overwrite((name) => name.replace(/\s+/g, " "))
   .min(1, "Enter a display name")
-  .max(20, "Must be at most 20 characters")
+  .max(carDisplayNameMaxLength, `Must be at most ${carDisplayNameMaxLength} characters`)
   .regex(/^[A-Za-z0-9 '’-]*$/, "Use only Latin letters, digits, spaces, apostrophes and hyphens");
 
 export const addCarRequestSchema = z.object({

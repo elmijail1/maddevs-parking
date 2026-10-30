@@ -423,3 +423,129 @@ describe("the user's parked car", () => {
     expect(await dialog.findByText(`Total so far: ${formatCents(1136)}`)).toBeInTheDocument();
   });
 });
+
+describe("several of the user's spaces at once", () => {
+  const vanBooking: MyParking = {
+    ...bookedJeep,
+    parkingId: "00000000-0000-4000-8000-000000000a02",
+    spaceId: spaceId("B2"),
+    spaceName: "B2",
+    regNumber: "BB222BB",
+    carName: "Work van",
+    expiresAt: "2026-10-29T06:20:00.000Z",
+  };
+  const parkedJeep: MyParking = { ...bookedJeep, status: "active", activeSince: "2026-10-29T05:30:00.000Z" };
+  const parkedVan: MyParking = { ...vanBooking, status: "active", activeSince: "2026-10-29T04:00:00.000Z" };
+  const totalsFor = (parking: MyParking, total: number) => ({
+    parking: {
+      parkingId: parking.parkingId,
+      activeSince: parking.status === "active" ? parking.activeSince : parking.expiresAt,
+      chargedMinutes: 30,
+      total,
+      currentRate: "day",
+      ratePerHourCents: 240,
+      nextRate: "night",
+      nextRateFrom: "2026-10-29T16:00:00.000Z",
+    },
+  });
+
+  const tile = (name: string) => screen.findByRole("button", { name: new RegExp(`^${name}, `) });
+
+  it("shows each space with its car's name and number, booked ones yellow and parked ones green", async () => {
+    serve({ mine: [bookedJeep, parkedVan], lot: spaces({ A1: "booked", B2: "occupied" }) });
+    renderApp("/spaces");
+
+    const jeepTile = await tile("A1");
+    const vanTile = await tile("B2");
+
+    expect(jeepTile).toHaveAccessibleName("A1, booked for AA111AA");
+    expect(within(jeepTile).getByText("My Jeep")).toBeInTheDocument();
+    expect(within(jeepTile).getByText("AA111AA")).toBeInTheDocument();
+    expect(jeepTile).toHaveClass("animate-pulse", "bg-yellow-300", "border-yellow-500");
+    expect(vanTile).toHaveAccessibleName("B2, BB222BB is parked here");
+    expect(within(vanTile).getByText("Work van")).toBeInTheDocument();
+    expect(within(vanTile).getByText("BB222BB")).toBeInTheDocument();
+    expect(vanTile).toHaveClass("animate-pulse", "bg-green-300", "border-green-600");
+  });
+
+  it("handles two bookings: each dialog shows its own car, and cancelling one keeps the other", async () => {
+    serve({ mine: [bookedJeep, vanBooking], lot: spaces({ A1: "booked", B2: "booked" }) });
+    mockApi({
+      [`POST /api/bookings/${vanBooking.parkingId}/cancel`]: () => {
+        mockApi({ "GET /api/my-parkings": () => json(200, { parkings: [bookedJeep] }) });
+        return json(204);
+      },
+    });
+    renderApp("/spaces");
+
+    await userEvent.click(await tile("A1"));
+    const jeepDialog = within(await screen.findByRole("dialog", { name: "A1" }));
+    expect(jeepDialog.getByText("This space is booked for AA111AA. The booking expires at 10:15.")).toBeInTheDocument();
+    await userEvent.click(jeepDialog.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(await tile("B2"));
+    const vanDialog = within(await screen.findByRole("dialog", { name: "B2" }));
+    expect(vanDialog.getByText("This space is booked for BB222BB. The booking expires at 10:20.")).toBeInTheDocument();
+    await userEvent.click(vanDialog.getByRole("button", { name: "Cancel booking" }));
+    await userEvent.click(
+      within(await screen.findByRole("dialog", { name: "Cancel the booking of B2?" })).getByRole("button", {
+        name: "Cancel booking",
+      }),
+    );
+    pushSpaces(spaces({ A1: "booked" }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Booking cancelled" })).getByRole("button"));
+
+    expect(await screen.findByRole("button", { name: "B2, available" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "A1, booked for AA111AA" })).toBeInTheDocument();
+    expect(requestsTo(`POST /api/bookings/${bookedJeep.parkingId}/cancel`)).toHaveLength(0);
+  });
+
+  it("handles two parked cars: each dialog refreshes its own total", async () => {
+    serve({ mine: [parkedJeep, parkedVan], lot: spaces({ A1: "occupied", B2: "occupied" }) });
+    mockApi({
+      [`POST /api/parkings/${parkedJeep.parkingId}/refresh`]: () => json(200, totalsFor(parkedJeep, 120)),
+      [`POST /api/parkings/${parkedVan.parkingId}/refresh`]: () => json(200, totalsFor(parkedVan, 480)),
+    });
+    renderApp("/spaces");
+
+    await userEvent.click(await tile("A1"));
+    expect(await screen.findByText("AA111AA has been parked here since 09:30.")).toBeInTheDocument();
+    expect(screen.getByText(`Total so far: ${formatCents(120)}`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(await tile("B2"));
+    expect(await screen.findByText("BB222BB has been parked here since 08:00.")).toBeInTheDocument();
+    expect(screen.getByText(`Total so far: ${formatCents(480)}`)).toBeInTheDocument();
+    expect(requestsTo(`POST /api/parkings/${parkedJeep.parkingId}/refresh`)).toHaveLength(1);
+    expect(requestsTo(`POST /api/parkings/${parkedVan.parkingId}/refresh`)).toHaveLength(1);
+  });
+
+  it("handles a booked and a parked car: cancelling for one, the total for the other", async () => {
+    serve({ mine: [bookedJeep, parkedVan], lot: spaces({ A1: "booked", B2: "occupied" }) });
+    mockApi({ [`POST /api/parkings/${parkedVan.parkingId}/refresh`]: () => json(200, totalsFor(parkedVan, 480)) });
+    renderApp("/spaces");
+
+    await userEvent.click(await tile("A1"));
+    const booked = within(await screen.findByRole("dialog", { name: "A1" }));
+    expect(booked.getByRole("button", { name: "Cancel booking" })).toBeEnabled();
+    expect(booked.queryByText(/Total so far/)).not.toBeInTheDocument();
+    await userEvent.click(booked.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(await tile("B2"));
+    const parked = within(await screen.findByRole("dialog", { name: "B2" }));
+    expect(await parked.findByText(`Total so far: ${formatCents(480)}`)).toBeInTheDocument();
+    expect(parked.queryByRole("button", { name: "Cancel booking" })).not.toBeInTheDocument();
+  });
+
+  it("offers only the free cars when booking another space", async () => {
+    serve({ mine: [bookedJeep], lot: spaces({ A1: "booked" }) });
+
+    const dialog = await openCarChoice("A2");
+
+    expect(await dialog.findByRole("radio", { name: "Work van (BB222BB)" })).toBeInTheDocument();
+    expect(dialog.getAllByRole("radio")).toHaveLength(1);
+  });
+});

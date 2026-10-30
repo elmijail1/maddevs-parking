@@ -6,6 +6,19 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 30.10. Step 14 (several bookings and parkings per user)
+
+### What was already in place, and what was added
+- **Already in place:** `my-parkings` returns all of a user's bookings and parkings, each highlighted space and dialog is tied to its own parking, cancelling and refreshing act on one parking, and the one-open-parking-per-car index plus the car list in the booking dialog keep a car from being booked twice.
+- **Added:** every highlighted space shows the car's display name (truncated if long) with its registration number under it, as the plan asks ("make it clear which car is associated"). Parked cars' spaces are filled green with a green border, booked ones stay yellow, both pulse; the difference comes from the status `my-parkings` already returns, so there's no extra request. Vacant spaces only have a green outline, so they stay distinguishable from parked ones.
+- **Tests** for the plan's three cases on both sides (several booked, several parked, mixed), including cancelling one booking while another stays and refreshing each parked car's own total.
+
+### Not limited yet
+- **Simultaneous bookings per user** aren't limited (one user could book every space with made-up cars); recorded in future-ideas.md.
+- **Cancelling a shared car's booking** stays open to everyone who has the car; the future "parkings linked to users" idea now mentions tightening it.
+
+---
+
 ## 30.10. Step 13 (parking history)
 
 ### Which parkings, in which order
@@ -111,6 +124,9 @@ The baseline technical and business decisions made before development started ar
 ### Adding a car
 - **Decision:** `POST /api/cars` finds or creates the vehicle, then compares the VIN and certificate number. A mismatch answers `409 vehicle_mismatch` with one message ("The VIN or certificate number doesn't match this car.") that doesn't say which value is wrong, so they can't be guessed one at a time. A car already active in the list answers `409 already_added`. Two simultaneous adds of the same new car are safe: a unique violation is treated as "the vehicle exists" / "already added".
 - **Routes:** `GET /api/cars`, `POST /api/cars`, `PATCH /api/cars/:id` (display name), `DELETE /api/cars/:id` (deactivate), all behind the login. `:id` is the link's id, scoped to the user from the token, so another user's car answers `404`.
+
+### Text fields stop at their limit
+- **Decision:** every text field has a `maxLength` equal to its maximum in the shared rules (email 100, passwords 30, registration and certificate numbers 15, VIN 17, display name 20), so the extra characters can't be typed or pasted. The limits are exported from the shared package, so the fields and the validation can't drift apart. The "too long" validation messages stay as a safety net, and the backend still checks everything.
 
 ### Up to 20 cars per user
 - **Decision:** a user can have at most 20 active cars (`maxCarsPerUser` in the shared config). Adding or re-adding one more answers `409 car_limit_reached`, shown as "You can have up to 20 cars. Remove one to add another." A quick count before anything else avoids creating a vehicle for a refused car; the authoritative count runs in the same transaction as the insert, after locking the user's row (`SELECT … FOR UPDATE`), so simultaneous adds can't get past the limit.

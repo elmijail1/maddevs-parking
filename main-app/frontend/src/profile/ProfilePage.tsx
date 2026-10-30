@@ -1,4 +1,4 @@
-import { changeEmailRequestSchema, changePasswordFormSchema, type AuthUser } from "@parking/shared";
+import { changeEmailRequestSchema, changePasswordFormSchema, emailMaxLength, type AuthUser } from "@parking/shared";
 import { Alert, Backdrop, Button, CircularProgress, Paper, TextField, Typography } from "@mui/material";
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent, type ReactNode } from "react";
@@ -83,7 +83,13 @@ function EmailEditor({ user, onSaved, onFailed, onCancel }: EditorProps & { user
 
   return (
     <form noValidate onSubmit={handleSubmit} aria-label="Edit email" className="flex flex-col gap-2">
-      <TextField {...fieldProps("email", "New email")} type="email" autoComplete="email" autoFocus />
+      <TextField
+        {...fieldProps("email", "New email")}
+        type="email"
+        autoComplete="email"
+        autoFocus
+        slotProps={{ htmlInput: { maxLength: emailMaxLength } }}
+      />
       <PasswordField
         {...fieldProps("currentPassword", "Current password")}
         autoComplete="current-password"

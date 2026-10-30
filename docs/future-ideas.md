@@ -29,6 +29,7 @@
 - Currently a parking only knows its vehicle, and a car can be on several users' lists, so the app can't tell which user made a booking.
 - A `userId` on the parking (empty for walk-ins from the bar post) would give each user a precise history of the parkings they made. That isn't the same as "paid by": payments happen at the terminal, so the app never knows who actually paid.
 - It would also make notifications precise: the booking reminder could go only to the user who made the booking instead of everyone who has the car on their list.
+- And it would tighten cancelling: currently any user who has the car on their list can cancel its booking, even one another user made. With the link, only the user who made the booking (or support) could cancel it.
 
 ## A data model for notifications
 - Booking reminders are currently sent and forgotten: if the email service is offline, a warning is logged and nothing else remembers that the email wasn't sent.
@@ -39,3 +40,8 @@
 - The total of an active parking is recalculated each time its dialog opens (and every hour), so to see it grow the user has to close and reopen the dialog.
 - A "Refresh" button in the dialog would recalculate it on demand.
 - Possible benefit: a smoother way to follow the total, without reopening the dialog.
+
+## A limit on simultaneous bookings per user
+- A user can have up to 20 cars, and VINs aren't checked against a real register, so one user could book every space in the lot at once and keep doing it every 15 minutes, blocking it for everyone else.
+- A limit such as 2 bookings at a time per user (cars already in the lot not counted) would stop that, with a message like "You can have up to 2 bookings at a time."
+- Possible benefit: fair access to the lot. Not needed yet, since it takes deliberate abuse.

@@ -1,4 +1,4 @@
-import { loginFormSchema, signupFormSchema, type AuthUser } from "@parking/shared";
+import { emailMaxLength, loginFormSchema, signupFormSchema, type AuthUser } from "@parking/shared";
 import { Alert, Button, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ChangeEvent, type FormEvent } from "react";
@@ -93,7 +93,12 @@ function AuthForm({ mode }: { mode: Mode }) {
         return "toggleName" in field ? (
           <PasswordField key={field.name} {...props} toggleName={field.toggleName} />
         ) : (
-          <TextField key={field.name} {...props} type={field.type} />
+          <TextField
+            key={field.name}
+            {...props}
+            type={field.type}
+            slotProps={{ htmlInput: { maxLength: emailMaxLength } }}
+          />
         );
       })}
       {formError && <Alert severity="error">{formError}</Alert>}
