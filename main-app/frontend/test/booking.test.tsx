@@ -1,4 +1,4 @@
-import { spacesEventName, type Car, type MyParking, type Space } from "@parking/shared";
+import { formatCents, spacesEventName, type Car, type MyParking, type ParkingTotals, type Space } from "@parking/shared";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -207,16 +207,6 @@ describe("the user's own spaces", () => {
     expect(dialog.getByRole("button", { name: "Cancel booking" })).toBeEnabled();
   });
 
-  it("shows since when the car is parked", async () => {
-    const parked: MyParking = { ...bookedJeep, status: "active", activeSince: "2026-10-29T05:30:00.000Z" };
-    serve({ mine: [parked], lot: spaces({ A1: "occupied" }) });
-    renderApp("/spaces");
-
-    await userEvent.click(await screen.findByRole("button", { name: "A1, AA111AA is parked here" }));
-
-    expect(await screen.findByText("AA111AA is parked here since 09:30.")).toBeInTheDocument();
-  });
-
   it("keeps the highlight after leaving the page and coming back", async () => {
     serve({ mine: [bookedJeep], lot: spaces({ A1: "booked" }) });
     renderApp("/spaces");
@@ -336,5 +326,80 @@ describe("cancelling a booking", () => {
 
     expect(await confirmation.findByText("Something went wrong. Please try again.")).toBeInTheDocument();
     expect(confirmation.getByRole("button", { name: "Keep booking" })).toBeEnabled();
+  });
+});
+
+describe("the user's parked car", () => {
+  const parked: MyParking = { ...bookedJeep, status: "active", activeSince: "2026-10-29T14:49:00.000Z" };
+  const refreshRoute = `POST /api/parkings/${parked.parkingId}/refresh`;
+  const totals: ParkingTotals = {
+    parkingId: parked.parkingId,
+    activeSince: parked.activeSince,
+    chargedMinutes: 71,
+    total: 1136,
+    currentRate: "night",
+    ratePerHourCents: 120,
+    nextRate: "day",
+    nextRateFrom: "2026-10-30T04:00:00.000Z",
+  };
+
+  async function openParked() {
+    serve({ mine: [parked], lot: spaces({ A1: "occupied" }) });
+    renderApp("/spaces");
+    await userEvent.click(await screen.findByRole("button", { name: "A1, AA111AA is parked here" }));
+    return within(await screen.findByRole("dialog", { name: "A1" }));
+  }
+
+  it("recalculates the total on opening and shows the start, the counted time, the total and the rate", async () => {
+    mockApi({ [refreshRoute]: () => json(200, { parking: totals }) });
+
+    const dialog = await openParked();
+
+    expect(await dialog.findByText("AA111AA has been parked here since 18:49.")).toBeInTheDocument();
+    expect(dialog.getByText("Time counted: 1 hour 11 minutes")).toBeInTheDocument();
+    expect(dialog.getByText(`Total so far: ${formatCents(1136)}`)).toBeInTheDocument();
+    expect(dialog.getByText("Current rate: night, $1.20 per hour (day rate from 08:00)")).toBeInTheDocument();
+    expect(requestsTo(refreshRoute)).toHaveLength(1);
+  });
+
+  it("recalculates again each time the dialog is opened", async () => {
+    mockApi({ [refreshRoute]: () => json(200, { parking: totals }) });
+    const dialog = await openParked();
+    await dialog.findByText("Time counted: 1 hour 11 minutes");
+
+    await userEvent.click(dialog.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    mockApi({ [refreshRoute]: () => json(200, { parking: { ...totals, chargedMinutes: 75, total: 1200 } }) });
+    await userEvent.click(screen.getByRole("button", { name: "A1, AA111AA is parked here" }));
+
+    expect(await screen.findByText("Time counted: 1 hour 15 minutes")).toBeInTheDocument();
+    expect(requestsTo(refreshRoute)).toHaveLength(2);
+  });
+
+  it("shows a spinner while calculating", async () => {
+    mockApi({ [refreshRoute]: () => new Promise(() => {}) });
+
+    const dialog = await openParked();
+
+    expect(dialog.getByRole("progressbar", { name: "Calculating the total" })).toBeInTheDocument();
+  });
+
+  it("says so when the car has left the lot in the meantime", async () => {
+    mockApi({ [refreshRoute]: () => json(409, { error: "parking_not_active" }) });
+
+    const dialog = await openParked();
+
+    expect(await dialog.findByText("This car is no longer in the lot.")).toBeInTheDocument();
+  });
+
+  it("offers to try again when the calculation fails", async () => {
+    mockApi({ [refreshRoute]: () => json(500) });
+    const dialog = await openParked();
+    await dialog.findByText("The total couldn't be calculated.");
+
+    mockApi({ [refreshRoute]: () => json(200, { parking: totals }) });
+    await userEvent.click(dialog.getByRole("button", { name: "Try again" }));
+
+    expect(await dialog.findByText(`Total so far: ${formatCents(1136)}`)).toBeInTheDocument();
   });
 });

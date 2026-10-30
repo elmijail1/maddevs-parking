@@ -1,7 +1,7 @@
 import type { NewExitResponse } from "@parking/shared";
 import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "../db";
-import { refreshParkingTotals } from "./parkings";
+import { refreshActiveParking } from "./parkings";
 import { sendToPaymentTerminal } from "./payment-terminal";
 import { cancelIfStale } from "./payments";
 
@@ -29,12 +29,13 @@ export async function startExit(regNumber: string, log: FastifyBaseLogger, now =
   }
 
   const payment = await prisma.$transaction(async (tx) => {
-    const { total } = await tx.parking.update({
-      where: { id: parking.id },
-      data: refreshParkingTotals(parking, now),
-    });
-    return tx.payment.create({ data: { parkingId: parking.id, total, createdAt: now } });
+    const refreshed = await refreshActiveParking(parking.id, now, tx);
+    return refreshed && tx.payment.create({ data: { parkingId: parking.id, total: refreshed.total, createdAt: now } });
   });
+  if (!payment) {
+    log.error({ critical: true, regNumber }, "Vehicle's parking stopped being active while its exit was being prepared");
+    return { status: "denied", reason: "no_active_parking" };
+  }
 
   try {
     await sendToPaymentTerminal({ paymentId: payment.id, total: payment.total });

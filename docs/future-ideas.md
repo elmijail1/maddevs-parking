@@ -34,3 +34,8 @@
 - Booking reminders are currently sent and forgotten: if the email service is offline, a warning is logged and nothing else remembers that the email wasn't sent.
 - A `Notification` model (recipient, type, related parking, status: pending / sent / failed, timestamps) would record every email, much like payments are recorded with their statuses.
 - Possible benefit: observability (what was sent, what failed and when) and a basis for retrying failed emails.
+
+## A refresh button for a parking's total
+- The total of an active parking is recalculated each time its dialog opens (and every hour), so to see it grow the user has to close and reopen the dialog.
+- A "Refresh" button in the dialog would recalculate it on demand.
+- Possible benefit: a smoother way to follow the total, without reopening the dialog.

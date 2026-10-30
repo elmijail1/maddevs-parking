@@ -1,7 +1,7 @@
 import { calculateCharge, getRateTypeAt, lastRateBoundaryAtOrBefore } from "@parking/shared";
 import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "../db";
-import type { Parking } from "../generated/prisma/client";
+import type { Parking, Prisma } from "../generated/prisma/client";
 
 export function parkingTimesFrom(activeSince: Date) {
   return {
@@ -24,6 +24,33 @@ export function refreshParkingTotals(
     currentRate,
     latestRateChange: currentRate === parking.currentRate ? parking.latestRateChange : lastRateBoundaryAtOrBefore(now),
   };
+}
+
+const maxRefreshAttempts = 5;
+
+export async function refreshActiveParking(
+  parkingId: string,
+  now: Date,
+  client: Prisma.TransactionClient = prisma,
+): Promise<Parking | null> {
+  for (let attempt = 0; attempt < maxRefreshAttempts; attempt++) {
+    const parking = await client.parking.findUnique({ where: { id: parkingId } });
+    if (parking?.status !== "active") {
+      return null;
+    }
+    const data = refreshParkingTotals(parking, now);
+    if (data.latestTotalUpdate <= parking.latestTotalUpdate) {
+      return parking;
+    }
+    const { count } = await client.parking.updateMany({
+      where: { id: parkingId, status: "active", latestTotalUpdate: parking.latestTotalUpdate },
+      data,
+    });
+    if (count > 0) {
+      return { ...parking, ...data };
+    }
+  }
+  throw new Error(`Parking ${parkingId} kept changing while its totals were being refreshed`);
 }
 
 const claimModes = {

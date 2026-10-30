@@ -6,6 +6,22 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 30.10. Step 12 (tracing a parking)
+
+### Refreshing a parking's total when its dialog opens
+- **Decision:** `POST /api/parkings/:parkingId/refresh`, for any user who has the car on their list (others get `404`, a parking that isn't active `409`). It runs the step 3 full-minutes calculation, saves it, and returns the start time, the counted full minutes, the total, the current rate with its price per hour, and the next rate with the time it starts. The frontend calls it each time the dialog opens (no refresh button; that's in future-ideas.md).
+- **The dialog:** "AA111AA has been parked here since 10:12.", "Time counted: 1 hour 11 minutes" (`formatDuration`), "Total so far: $2.84", "Current rate: day, $2.40 per hour (night rate from 20:00)". The counted minutes replace an "as of" time: they show plainly that only full minutes are charged.
+
+### Conditional writes for totals
+- **Decision:** `refreshActiveParking` writes the new totals only if the parking is still `active` and its `latestTotalUpdate` is still the one that was read; otherwise it re-reads and recalculates (up to 5 attempts). It never moves `latestTotalUpdate` backwards. The exit and the hourly job use it too.
+- **Why:** the totals are written as absolute values computed from the stored starting point, so parallel refreshes can't count minutes twice, but a slower request could overwrite a newer total with an older one, or a refresh could change the total of a parking that the exit has just finished. (At first the risk was described as double counting, which was wrong.)
+
+### An hourly worker for all active parkings
+- **Decision:** a job on the in-memory scheduler runs at every full hour (scheduled on startup, rescheduling itself after each run, even a failed one) and refreshes every active parking: its total and, at a rate switch, its rate. As described in `initial-description.md`.
+- **Why:** stored totals stay close to the truth even if nobody opens the dialog; the result doesn't depend on how often it runs.
+
+---
+
 ## 30.10. Step 11 (booking reminders and automatic expiry)
 
 ### One in-memory timer per job, rebuilt on startup

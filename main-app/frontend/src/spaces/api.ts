@@ -1,11 +1,13 @@
 import {
   bookingResponseSchema,
   myParkingsResponseSchema,
+  parkingTotalsResponseSchema,
   spacesEventName,
   spacesResponseSchema,
   type Booking,
   type BookSpaceRequest,
   type MyParking,
+  type ParkingTotals,
   type Space,
 } from "@parking/shared";
 import { UnauthorizedError } from "../api-errors";
@@ -49,4 +51,8 @@ export async function bookSpace(body: BookSpaceRequest): Promise<Booking> {
 
 export async function cancelBooking(parkingId: string) {
   await sendRequest("POST", `/api/bookings/${parkingId}/cancel`);
+}
+
+export async function refreshParking(parkingId: string): Promise<ParkingTotals> {
+  return parkingTotalsResponseSchema.parse(await sendRequest("POST", `/api/parkings/${parkingId}/refresh`)).parking;
 }

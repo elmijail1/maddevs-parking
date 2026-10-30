@@ -1,9 +1,9 @@
-import { formatLotTime, type MyParking } from "@parking/shared";
-import { Alert, Button } from "@mui/material";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { formatCents, formatDuration, formatLotTime, type MyParking } from "@parking/shared";
+import { Alert, Button, CircularProgress } from "@mui/material";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiRequestError } from "../api-request";
-import { cancelBooking, myParkingsQueryKey } from "./api";
+import { cancelBooking, myParkingsQueryKey, refreshParking } from "./api";
 import { MessageDialog } from "./MessageDialog";
 
 export const cancelBookingMutationKey = ["cancelBooking"];
@@ -18,11 +18,7 @@ export function MyParkingDialog({
   onCancel: () => void;
 }) {
   if (parking.status === "active") {
-    return (
-      <MessageDialog title={parking.spaceName} onClose={onClose} actions={<Button onClick={onClose}>Close</Button>}>
-        {parking.regNumber} is parked here since {formatLotTime(parking.activeSince)}.
-      </MessageDialog>
-    );
+    return <ParkingTotalsDialog parking={parking} onClose={onClose} />;
   }
   return (
     <MessageDialog
@@ -38,6 +34,52 @@ export function MyParkingDialog({
       }
     >
       This space is booked for {parking.regNumber}. The booking expires at {formatLotTime(parking.expiresAt)}.
+    </MessageDialog>
+  );
+}
+
+function ParkingTotalsDialog({ parking, onClose }: { parking: MyParking; onClose: () => void }) {
+  const totals = useQuery({
+    queryKey: ["parkingTotals", parking.parkingId],
+    queryFn: () => refreshParking(parking.parkingId),
+    retry: false,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+
+  let content;
+  if (totals.data) {
+    const { activeSince, chargedMinutes, total, currentRate, ratePerHourCents, nextRate, nextRateFrom } = totals.data;
+    content = (
+      <>
+        <span className="block">
+          {parking.regNumber} has been parked here since {formatLotTime(activeSince)}.
+        </span>
+        <span className="block">Time counted: {formatDuration(chargedMinutes)}</span>
+        <span className="block font-semibold">Total so far: {formatCents(total)}</span>
+        <span className="block">
+          Current rate: {currentRate}, {formatCents(ratePerHourCents)} per hour ({nextRate} rate from{" "}
+          {formatLotTime(nextRateFrom)})
+        </span>
+      </>
+    );
+  } else if (totals.isError) {
+    const gone = totals.error instanceof ApiRequestError && totals.error.code === "parking_not_active";
+    content = gone ? (
+      "This car is no longer in the lot."
+    ) : (
+      <span className="flex flex-col items-start gap-2">
+        <span>The total couldn't be calculated.</span>
+        <Button onClick={() => void totals.refetch()}>Try again</Button>
+      </span>
+    );
+  } else {
+    content = <CircularProgress aria-label="Calculating the total" />;
+  }
+
+  return (
+    <MessageDialog title={parking.spaceName} onClose={onClose} actions={<Button onClick={onClose}>Close</Button>}>
+      {content}
     </MessageDialog>
   );
 }
