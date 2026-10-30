@@ -1,4 +1,10 @@
 
+30.10. Step 10 (cancelling a booking):
+- Agreed on the step 10 details: the cancelled parking keeps its time fields, a confirmation before cancelling, entering after a cancellation is treated as entering without a booking (and expiry will be postponed when a booked car is let in, in step 11). Updated implementation-plan.md (steps 10 and 11).
+- Added POST /api/bookings/:parkingId/cancel (owner check, conditional updates, SSE announcement) and the entrance fallback for a booking cancelled after the car was let in. 9 new backend tests (196 in total).
+- Made the charge tests compute amounts from the configured rates, after the base rate was changed to 2¢ a minute.
+- Enabled Cancel booking on /spaces with a confirmation dialog, the "Booking cancelled" message and the "can no longer be cancelled" case. 5 new frontend tests (109 in total). Checked cancelling, another user's attempt and the SSE update through the Vite proxy.
+
 29.10. Step 3 (allowExit):
 - Added the charge calculation to the shared package: full minutes only, split at the 08:00/20:00 rate boundaries, plus money formatting, with unit tests.
 - Added refreshParkingTotals in the backend: an idempotent total refresh that the exit, the future cron job and user clicks will share.

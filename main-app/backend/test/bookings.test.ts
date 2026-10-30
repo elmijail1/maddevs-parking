@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { prisma } from "../src/db";
 import { createParking, createTestApp, getSpace, placeVehicle, resetDatabase, setSpace, signUp } from "./helpers";
 
-const { app } = createTestApp();
+const { app, logs, warnings } = createTestApp();
 const regNumber = "AA111AA";
 let cookie: string;
 
@@ -26,6 +26,7 @@ const myParkings = async (as = cookie) => (await inject("GET", "/api/my-parkings
 
 beforeEach(async () => {
   await resetDatabase();
+  logs.length = 0;
   cookie = await signUp(app);
 });
 
@@ -141,6 +142,102 @@ describe("POST /api/bookings", () => {
 
     expect((await book("A1", car.id, "")).statusCode).toBe(401);
     expect(await prisma.parking.count()).toBe(0);
+  });
+});
+
+describe("POST /api/bookings/:parkingId/cancel", () => {
+  const cancel = (parkingId: string, as = cookie) => inject("POST", `/api/bookings/${parkingId}/cancel`, undefined, as);
+
+  async function bookA1() {
+    const car = await addCar();
+    return (await book("A1", car.id)).json().booking as { parkingId: string; expiresAt: string };
+  }
+
+  it("cancels the parking, keeps its times and frees the space", async () => {
+    const booking = await bookA1();
+
+    const response = await cancel(booking.parkingId);
+
+    expect(response.statusCode).toBe(204);
+    expect(await prisma.parking.findUniqueOrThrow({ where: { id: booking.parkingId } })).toMatchObject({
+      status: "cancelled",
+      activeSince: new Date(booking.expiresAt),
+    });
+    expect(await getSpace("A1")).toMatchObject({ status: "vacant", relatedVehicle: null });
+    expect(await myParkings()).toEqual([]);
+  });
+
+  it("lets the space and the car be booked again with a new parking", async () => {
+    const booking = await bookA1();
+    await cancel(booking.parkingId);
+    const [car] = (await inject("GET", "/api/cars")).json().cars;
+
+    const again = await book("A1", car.id);
+
+    expect(again.statusCode).toBe(201);
+    expect(again.json().booking.parkingId).not.toBe(booking.parkingId);
+    expect((await prisma.parking.findMany({ orderBy: { createdAt: "asc" } })).map((p) => p.status)).toEqual([
+      "cancelled",
+      "booked",
+    ]);
+  });
+
+  it("lets another user who has the car cancel the booking", async () => {
+    const otherCookie = await signUp(app, "other@example.com");
+    await addCar(regNumber, otherCookie);
+    const booking = await bookA1();
+
+    expect((await cancel(booking.parkingId, otherCookie)).statusCode).toBe(204);
+  });
+
+  it("can't cancel a booking of a car that isn't on the user's list", async () => {
+    const booking = await bookA1();
+    const strangerCookie = await signUp(app, "stranger@example.com");
+
+    for (const parkingId of [booking.parkingId, crypto.randomUUID()]) {
+      const response = await cancel(parkingId, strangerCookie);
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ error: "not_found" });
+    }
+    expect(await getSpace("A1")).toMatchObject({ status: "booked", relatedVehicle: regNumber });
+  });
+
+  it("refuses a booking that is no longer booked", async () => {
+    const booking = await bookA1();
+    await cancel(booking.parkingId);
+    const parked = await createParking("B1", regNumber, "active");
+    await setSpace("B1", "occupied", regNumber);
+
+    for (const parkingId of [booking.parkingId, parked.id]) {
+      const response = await cancel(parkingId);
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual({ error: "booking_not_active" });
+    }
+    expect(await getSpace("B1")).toMatchObject({ status: "occupied", relatedVehicle: regNumber });
+  });
+
+  it("only cancels once when two requests arrive together", async () => {
+    const booking = await bookA1();
+
+    const responses = await Promise.all([cancel(booking.parkingId), cancel(booking.parkingId)]);
+
+    expect(responses.map((r) => r.statusCode).sort()).toEqual([204, 409]);
+  });
+
+  it("leaves a space that isn't booked for the car as it is, with a warning", async () => {
+    const booking = await bookA1();
+    await setSpace("A1", "occupied", "OTHER1");
+
+    expect((await cancel(booking.parkingId)).statusCode).toBe(204);
+    expect(await getSpace("A1")).toMatchObject({ status: "occupied", relatedVehicle: "OTHER1" });
+    expect(warnings()).toHaveLength(1);
+  });
+
+  it("rejects a malformed id and requires a login", async () => {
+    const booking = await bookA1();
+
+    expect((await cancel("not-a-uuid")).statusCode).toBe(400);
+    expect((await cancel(booking.parkingId, "")).statusCode).toBe(401);
   });
 });
 

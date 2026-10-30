@@ -6,6 +6,27 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 30.10. Step 10 (cancelling a booking)
+
+### Cancellation keeps the parking's times
+- **Decision:** `POST /api/bookings/:parkingId/cancel` sets the parking to `cancelled` (only while it's still `booked`) and frees its space (only while it's still booked for that car), in one transaction, then announces the change over SSE. `activeSince`, `currentRate`, `latestRateChange` and `latestTotalUpdate` are kept, not nullified as the plan first said (it was updated). The same goes for the automatic expiry in step 11.
+- **Why:** the columns are required; making them nullable would add null checks to charging, exits and history for no gain. For a booked parking `activeSince` holds the scheduled time anyway, and a cancelled parking is never reactivated: booking again creates a new parking.
+- **Who can cancel:** any user who has the car active on their list (the same rule as booking); others get `404`. A booking that's no longer booked (the car entered, or it was already cancelled) gets `409 booking_not_active`, shown as "This booking can no longer be cancelled.". If the space wasn't booked for the car any more, it's left as it is, with a warning.
+
+### A confirmation before cancelling
+- **Decision:** "Cancel booking" opens "Cancel the booking of A1?" with "Keep booking" and "Cancel booking"; success shows "Booking cancelled." with OK. If the car enters while the confirmation is open, it switches to the "can no longer be cancelled" message.
+- **Why:** a small guard against accidental clicks, as the user asked; the plan was updated.
+
+### Entering after the booking ended
+- **Decision:** if a booked car was let in by the bar post but its booking was cancelled before `/api/new-parking` arrived, the entrance is handled like one without a booking (a vacant space is claimed, with a warning) instead of failing with a `500`. This closes the step 2 "known gap" for manual cancellations.
+- **For step 11 (automatic expiry):** when `/api/new-entrance` lets a booked car in, its expiry will be postponed by 1–2 minutes, so a car entering at 10:14:59 for a 10:15 expiry isn't cancelled before its entrance is registered. If the car turns back, the booking still expires soon. The fallback above stays as a safety net.
+
+### Tests follow the configured rates
+- **Decision:** charge tests compute the expected amounts from `getRatePerMinuteCents` instead of hard-coding cents.
+- **Why:** the base rate was changed in the shared config (10¢ → 2¢ a minute), which broke tests that assumed the old rate; the rate is configuration, the tests check the calculation.
+
+---
+
 ## 29.10. Step 9 (booking from the app)
 
 ### Booking a specific space
@@ -269,7 +290,7 @@ The baseline technical and business decisions made before development started ar
 - **Responses:** 204 for every handled case and 409 when there's no space. The bar post only prints errors.
 - **Plan case 6 (several booked parkings for one car) isn't handled**, because the one-open-parking-per-car index makes it impossible. Tests prove that the database rejects it instead.
 - **Why:** follows the implementation plan. The extra cases make repeated or out-of-order calls safe.
-- **Known gap:** activation checks that the parking is still `booked` and fails with a 500 if it isn't. Once booking expiry and cancellation exist (steps 6 and 8), an expiry that lands at the same moment as an entrance must be looked at again.
+- **Known gap:** activation checks that the parking is still `booked` and fails with a 500 if it isn't. Once booking expiry and cancellation exist (steps 6 and 8), an expiry that lands at the same moment as an entrance must be looked at again. (Closed in step 10: such an entrance is now treated as one without a booking.)
 
 ### Step 3 (allowExit) design: the terminal answers asynchronously
 - **Decision:** the main app sends `{ paymentId, total }` to the terminal, which accepts it right away. The terminal posts the result (`success`/`cancelled`/`failed`) to the main app later. The main app answers the bar post's `/api/new-exit` right away with "awaiting payment".

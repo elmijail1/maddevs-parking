@@ -158,8 +158,8 @@ Now that we have all the frontend we need, we can finally get to bookings throug
 
 - 10. Cancelling the booking manually
 Now we need to add booking cancellation.
-- The user opens the diagram (/spaces), clicks a highlighted space they booked, click "Cancel booking".
-- This does the following: the space is updated (status: vacant, relatedVehicle: undefined), the parking is updated (status: cancelled, time-related values are nullified).
+- The user opens the diagram (/spaces), clicks a highlighted space they booked, click "Cancel booking". A small confirmation window asks whether they really want to cancel the booking (to guard against accidental clicks).
+- This does the following: the space is updated (status: vacant, relatedVehicle: undefined), the parking is updated (status: cancelled; the time-related values are kept as they are: activeSince of a booked parking holds the scheduled time anyway, and a cancelled parking is never reactivated – booking again creates a new parking).
 - On success, the user is shown a message "Booking cancelled" and the OK button. Clicking OK takes the user back to the layout diagram, but now the previously booked space isn't highlighted, it's just green.
 - success criteria cases to test:
 - - 1. A user cancels a booking and both related objects get updated properly.
@@ -173,7 +173,7 @@ Now we must make use of time-related mechanisms that control bookings.
 - As soon as we changed the space's status to booked and created a related parking, we also schedule a worker at "expiration time - 10 minutes".
 - The contents of the email don't matter.
 - We deliberately aren't making a separate data model for it for simpliciation, although I would make one for a real-life case.
-- The email worker ran, now it must schedule another worker: the one that actually cancels the booking at the expiration time. It must be scheduled right at the expiration time taken from the related parking object. What it does: changes the space's status to vacant and nullifies the relatedVehicle, then cancels the booking and nullifies its time-related fields.
+- The email worker ran, now it must schedule another worker: the one that actually cancels the booking at the expiration time. It must be scheduled right at the expiration time taken from the related parking object. What it does: changes the space's status to vacant and nullifies the relatedVehicle, then cancels the booking (its time-related fields are kept, as with a manual cancellation).
 - The server sends an update on this change just as it would with any other space update.
 - success criteria cases to test:
 - - 1. A user booked a space but hasn't showed up for 5 minutes – an email was sent to them (we got a response from the mocked email service).

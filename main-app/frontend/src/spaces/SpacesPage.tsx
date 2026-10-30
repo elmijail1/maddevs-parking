@@ -1,9 +1,10 @@
-import { bookingExpirationMinutes, formatLotTime, type Booking, type MyParking, type Space } from "@parking/shared";
+import { bookingExpirationMinutes, type Booking, type Space } from "@parking/shared";
 import { Button, CircularProgress, Typography } from "@mui/material";
 import { useIsMutating } from "@tanstack/react-query";
 import { useState } from "react";
 import { bookSpaceMutationKey, ChooseCarDialog } from "./ChooseCarDialog";
 import { MessageDialog } from "./MessageDialog";
+import { cancelBookingMutationKey, ConfirmCancelDialog, MyParkingDialog } from "./MyParkingDialogs";
 import { SpaceDetailsDialog } from "./SpaceDetailsDialog";
 import { SpaceTile } from "./SpaceTile";
 import { useMyParkings, useSpaces } from "./use-spaces";
@@ -14,6 +15,9 @@ type DialogState =
   | { kind: "booked"; booking: Booking }
   | { kind: "unavailable" }
   | { kind: "mine"; parkingId: string }
+  | { kind: "confirmCancel"; parkingId: string }
+  | { kind: "cancelled" }
+  | { kind: "notCancellable" }
   | null;
 
 function groupIntoRows(spaces: Space[]) {
@@ -25,43 +29,18 @@ function groupIntoRows(spaces: Space[]) {
   return [...rows.values()];
 }
 
-function MyParkingDialog({ parking, onClose }: { parking: MyParking; onClose: () => void }) {
-  if (parking.status === "active") {
-    return (
-      <MessageDialog title={parking.spaceName} onClose={onClose} actions={<Button onClick={onClose}>Close</Button>}>
-        {parking.regNumber} is parked here since {formatLotTime(parking.activeSince)}.
-      </MessageDialog>
-    );
-  }
-  return (
-    <MessageDialog
-      title={parking.spaceName}
-      onClose={onClose}
-      actions={
-        <>
-          <Button onClick={onClose}>Close</Button>
-          <Button color="error" variant="outlined" disabled>
-            Cancel booking
-          </Button>
-        </>
-      }
-    >
-      This space is booked for {parking.regNumber}. The booking expires at {formatLotTime(parking.expiresAt)}.
-    </MessageDialog>
-  );
-}
-
 export function SpacesPage() {
   const { data: spaces, isPending, isError, refetch } = useSpaces();
   const { data: myParkings } = useMyParkings();
   const [dialog, setDialog] = useState<DialogState>(null);
   const booking = useIsMutating({ mutationKey: bookSpaceMutationKey }) > 0;
+  const cancelling = useIsMutating({ mutationKey: cancelBookingMutationKey }) > 0;
 
   const myParkingBySpace = new Map(myParkings?.map((parking) => [parking.spaceId, parking]));
   const findSpace = (id: string) => spaces?.find((space) => space.id === id);
   const dialogSpace = dialog && "spaceId" in dialog ? findSpace(dialog.spaceId) : undefined;
   const dialogParking =
-    dialog?.kind === "mine" ? myParkings?.find((parking) => parking.parkingId === dialog.parkingId) : undefined;
+    dialog && "parkingId" in dialog ? myParkings?.find((parking) => parking.parkingId === dialog.parkingId) : undefined;
 
   if (dialog?.kind === "details" && dialogSpace?.status !== "vacant") {
     setDialog(null);
@@ -69,6 +48,8 @@ export function SpacesPage() {
     setDialog({ kind: "unavailable" });
   } else if (dialog?.kind === "mine" && myParkings && !dialogParking) {
     setDialog(null);
+  } else if (dialog?.kind === "confirmCancel" && myParkings && dialogParking?.status !== "booked" && !cancelling) {
+    setDialog({ kind: "notCancellable" });
   }
 
   const close = () => setDialog(null);
@@ -148,7 +129,31 @@ export function SpacesPage() {
           This space is unavailable, please try another.
         </MessageDialog>
       )}
-      {dialogParking && <MyParkingDialog parking={dialogParking} onClose={close} />}
+      {dialog?.kind === "mine" && dialogParking && (
+        <MyParkingDialog
+          parking={dialogParking}
+          onClose={close}
+          onCancel={() => setDialog({ kind: "confirmCancel", parkingId: dialogParking.parkingId })}
+        />
+      )}
+      {dialog?.kind === "confirmCancel" && dialogParking && (
+        <ConfirmCancelDialog
+          parking={dialogParking}
+          onKeep={() => setDialog({ kind: "mine", parkingId: dialogParking.parkingId })}
+          onCancelled={() => setDialog({ kind: "cancelled" })}
+          onNotCancellable={() => setDialog({ kind: "notCancellable" })}
+        />
+      )}
+      {dialog?.kind === "cancelled" && (
+        <MessageDialog title="Booking cancelled" onClose={close}>
+          Booking cancelled.
+        </MessageDialog>
+      )}
+      {dialog?.kind === "notCancellable" && (
+        <MessageDialog title="Booking not cancelled" onClose={close}>
+          This booking can no longer be cancelled.
+        </MessageDialog>
+      )}
     </main>
   );
 }

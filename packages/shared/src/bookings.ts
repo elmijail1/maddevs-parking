@@ -20,7 +20,15 @@ export const bookingResponseSchema = z.object({ booking: bookingSchema });
 export type BookingResponse = z.infer<typeof bookingResponseSchema>;
 
 export const bookingErrorSchema = z.object({
-  error: z.enum(["invalid_request", "space_unavailable", "car_not_found", "vehicle_busy", "unauthorized"]),
+  error: z.enum([
+    "invalid_request",
+    "space_unavailable",
+    "car_not_found",
+    "vehicle_busy",
+    "not_found",
+    "booking_not_active",
+    "unauthorized",
+  ]),
 });
 export type BookingError = z.infer<typeof bookingErrorSchema>["error"];
 

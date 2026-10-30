@@ -126,7 +126,7 @@ describe("GET /api/spaces/events", () => {
     expect(statuses(await nextSpaces())).toMatchObject({ A1: "vacant" });
   });
 
-  it("sends the spaces again after a user books one", async () => {
+  it("sends the spaces again after a user books one and cancels the booking", async () => {
     const { nextSpaces } = await openSpacesStream();
     await nextSpaces();
     const car = await app.inject({
@@ -145,6 +145,11 @@ describe("GET /api/spaces/events", () => {
     });
 
     expect(statuses(await nextSpaces())).toMatchObject({ B1: "booked" });
+
+    const parkingId = (await prisma.parking.findFirstOrThrow()).id;
+    await app.inject({ method: "POST", url: `/api/bookings/${parkingId}/cancel`, headers: { cookie } });
+
+    expect(statuses(await nextSpaces())).toMatchObject({ B1: "vacant" });
   });
 
   it("sends every change to every connected client", async () => {

@@ -1,4 +1,4 @@
-import { spacesEventName, type Space, type SpaceStatus } from "@parking/shared";
+import { formatCents, getRatePerMinuteCents, spacesEventName, type Space, type SpaceStatus } from "@parking/shared";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -119,8 +119,9 @@ describe("parking lot diagram", () => {
 
     const details = await screen.findByRole("dialog");
     expect(within(details).getByRole("heading", { name: "A3" })).toBeInTheDocument();
-    expect(within(details).getByText("08:00–20:00: $12.00 per hour")).toBeInTheDocument();
-    expect(within(details).getByText("20:00–08:00: $6.00 per hour")).toBeInTheDocument();
+    const hourly = (rate: "day" | "night") => `${formatCents(getRatePerMinuteCents(rate) * 60)} per hour`;
+    expect(within(details).getByText(`08:00–20:00: ${hourly("day")}`)).toBeInTheDocument();
+    expect(within(details).getByText(`20:00–08:00: ${hourly("night")}`)).toBeInTheDocument();
 
     await userEvent.click(within(details).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

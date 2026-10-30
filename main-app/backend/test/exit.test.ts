@@ -1,7 +1,11 @@
+import { getRatePerMinuteCents } from "@parking/shared";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "../src/db";
 import { env } from "../src/env";
 import { createParking, createPayment, createTestApp, placeVehicle, resetDatabase, setSpace } from "./helpers";
+
+const day = getRatePerMinuteCents("day");
+const night = getRatePerMinuteCents("night");
 
 const { app, logs, warnings, criticals } = createTestApp();
 const regNumber = "XX000XX";
@@ -60,7 +64,7 @@ describe("POST /api/new-exit", () => {
 
     const response = await postNewExit({ regNumber });
 
-    const expectedTotal = 100 + 30 * 20 + 30 * 10;
+    const expectedTotal = 100 + 30 * day + 30 * night;
     const payments = await prisma.payment.findMany();
     expect(payments).toHaveLength(1);
     expect(payments[0]).toMatchObject({ parkingId: parking.id, status: "pending", total: expectedTotal });

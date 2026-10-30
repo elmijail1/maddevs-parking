@@ -1,7 +1,11 @@
+import { getRatePerMinuteCents } from "@parking/shared";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "../src/db";
 import { env } from "../src/env";
 import { createParking, createTestApp, getSpace, placeVehicle, resetDatabase, setSpace } from "./helpers";
+
+const day = getRatePerMinuteCents("day");
+const night = getRatePerMinuteCents("night");
 
 const { app, logs, warnings, criticals } = createTestApp();
 const regNumber = "XX000XX";
@@ -135,9 +139,9 @@ describe("POST /api/space-vacant-again", () => {
     expect(await getSpace("A1")).toMatchObject({ status: "vacant", relatedVehicle: null });
     expect(await prisma.parking.findUniqueOrThrow({ where: { id: parking.id } })).toMatchObject({
       status: "finished",
-      total: 30 * 20,
+      total: 30 * day,
     });
-    expect(criticals()).toEqual([expect.objectContaining({ unpaidTotal: 600 })]);
+    expect(criticals()).toEqual([expect.objectContaining({ unpaidTotal: 30 * day })]);
   });
 
   it("leaves other vehicles' spaces and parkings untouched", async () => {

@@ -196,7 +196,7 @@ describe("booking", () => {
 });
 
 describe("the user's own spaces", () => {
-  it("shows the booking's expiration time with a disabled Cancel button", async () => {
+  it("shows the booking's expiration time with a Cancel booking button", async () => {
     serve({ mine: [bookedJeep], lot: spaces({ A1: "booked" }) });
     renderApp("/spaces");
 
@@ -204,7 +204,7 @@ describe("the user's own spaces", () => {
 
     const dialog = within(await screen.findByRole("dialog", { name: "A1" }));
     expect(dialog.getByText("This space is booked for AA111AA. The booking expires at 10:15.")).toBeInTheDocument();
-    expect(dialog.getByRole("button", { name: "Cancel booking" })).toBeDisabled();
+    expect(dialog.getByRole("button", { name: "Cancel booking" })).toBeEnabled();
   });
 
   it("shows since when the car is parked", async () => {
@@ -259,5 +259,82 @@ describe("the user's own spaces", () => {
 
     expect(await screen.findByRole("img", { name: "A1, unavailable" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "A2, unavailable" })).toBeInTheDocument();
+  });
+});
+
+describe("cancelling a booking", () => {
+  const cancelRoute = `POST /api/bookings/${bookedJeep.parkingId}/cancel`;
+
+  async function openConfirmation() {
+    serve({ mine: [bookedJeep], lot: spaces({ A1: "booked" }) });
+    renderApp("/spaces");
+    await userEvent.click(await screen.findByRole("button", { name: "A1, booked for AA111AA" }));
+    const details = within(await screen.findByRole("dialog", { name: "A1" }));
+    await userEvent.click(details.getByRole("button", { name: "Cancel booking" }));
+    return within(await screen.findByRole("dialog", { name: "Cancel the booking of A1?" }));
+  }
+
+  it("asks for confirmation, cancels, and the space becomes available again", async () => {
+    mockApi({
+      [cancelRoute]: () => {
+        mockApi({ "GET /api/my-parkings": () => json(200, { parkings: [] }) });
+        return json(204);
+      },
+    });
+    const confirmation = await openConfirmation();
+    expect(requestsTo(cancelRoute)).toHaveLength(0);
+
+    await userEvent.click(confirmation.getByRole("button", { name: "Cancel booking" }));
+    pushSpaces(spaces());
+
+    const message = within(await screen.findByRole("dialog", { name: "Booking cancelled" }));
+    expect(message.getByText("Booking cancelled.")).toBeInTheDocument();
+    expect(requestsTo(cancelRoute)).toHaveLength(1);
+    await userEvent.click(message.getByRole("button", { name: "OK" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    const tile = await screen.findByRole("button", { name: "A1, available" });
+    expect(tile).not.toHaveClass("animate-pulse");
+  });
+
+  it("keeps the booking when the user changes their mind", async () => {
+    const confirmation = await openConfirmation();
+
+    await userEvent.click(confirmation.getByRole("button", { name: "Keep booking" }));
+
+    expect(await screen.findByRole("dialog", { name: "A1" })).toBeInTheDocument();
+    expect(requestsTo(cancelRoute)).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "A1, booked for AA111AA", hidden: true })).toBeInTheDocument();
+  });
+
+  it("explains when the booking can no longer be cancelled", async () => {
+    mockApi({ [cancelRoute]: () => json(409, { error: "booking_not_active" }) });
+    const confirmation = await openConfirmation();
+
+    await userEvent.click(confirmation.getByRole("button", { name: "Cancel booking" }));
+
+    expect(await screen.findByText("This booking can no longer be cancelled.")).toBeInTheDocument();
+  });
+
+  it("switches to that message when the car enters while the confirmation is open", async () => {
+    await openConfirmation();
+
+    mockApi({
+      "GET /api/my-parkings": () =>
+        json(200, { parkings: [{ ...bookedJeep, status: "active", activeSince: "2026-10-29T06:10:00.000Z" }] }),
+    });
+    pushSpaces(spaces({ A1: "occupied" }));
+
+    expect(await screen.findByText("This booking can no longer be cancelled.")).toBeInTheDocument();
+  });
+
+  it("shows an error and keeps the confirmation open when the request fails", async () => {
+    mockApi({ [cancelRoute]: () => json(500) });
+    const confirmation = await openConfirmation();
+
+    await userEvent.click(confirmation.getByRole("button", { name: "Cancel booking" }));
+
+    expect(await confirmation.findByText("Something went wrong. Please try again.")).toBeInTheDocument();
+    expect(confirmation.getByRole("button", { name: "Keep booking" })).toBeEnabled();
   });
 });

@@ -52,16 +52,21 @@ async function activateBookedParking(
     log.warn(context, `Space of the booked parking was ${space.status}, occupying it anyway`);
   }
 
-  await prisma.$transaction(async (tx) => {
+  const activated = await prisma.$transaction(async (tx) => {
     const { count } = await tx.parking.updateMany({
       where: { id: parking.id, status: "booked" },
       data: { status: "active", ...parkingTimesFrom(time) },
     });
     if (count === 0) {
-      throw new Error(`Parking ${parking.id} stopped being booked while it was being activated`);
+      return false;
     }
     await tx.space.update({ where: { id: space.id }, data: { status: "occupied", relatedVehicle: regNumber } });
+    return true;
   });
+  if (!activated) {
+    log.warn(context, "Booking ended before the entrance was registered, treating it as an entrance without a booking");
+    return createParkingWithoutBooking(regNumber, time, log);
+  }
   return "activated";
 }
 

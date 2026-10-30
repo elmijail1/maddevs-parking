@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "../src/db";
 import { env } from "../src/env";
 import { spaceDisplayNames } from "../src/lot";
@@ -203,6 +203,24 @@ describe("POST /api/new-parking", () => {
     expect(response.statusCode).toBe(401);
     const [parking] = await getParkings();
     expect(parking?.status).toBe("booked");
+  });
+
+  it("treats the car as entering without a booking if the booking was cancelled after it was let in", async () => {
+    await placeVehicle("A1", regNumber, "booked");
+    const staleBooking = await prisma.parking.findFirstOrThrow({ where: { status: "booked" }, include: { space: true } });
+    await prisma.parking.update({ where: { id: staleBooking.id }, data: { status: "cancelled" } });
+    await setSpace("A1", "vacant", null);
+    vi.spyOn(prisma.parking, "findFirst").mockResolvedValueOnce(staleBooking);
+
+    const response = await postNewParking({ regNumber, time: dayTime.toISOString() });
+
+    expect(response.statusCode).toBe(204);
+    expect((await getParkings()).map((p) => p.status)).toEqual(["cancelled", "active"]);
+    expect(await getSpace("A1")).toMatchObject({ status: "occupied", relatedVehicle: regNumber });
+    expect(warnings().map((w) => w.msg)).toContain(
+      "Booking ended before the entrance was registered, treating it as an entrance without a booking",
+    );
+    expect(criticals()).toHaveLength(0);
   });
 });
 

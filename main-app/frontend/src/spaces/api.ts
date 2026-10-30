@@ -46,3 +46,7 @@ export async function fetchMyParkings(): Promise<MyParking[]> {
 export async function bookSpace(body: BookSpaceRequest): Promise<Booking> {
   return bookingResponseSchema.parse(await sendRequest("POST", "/api/bookings", body)).booking;
 }
+
+export async function cancelBooking(parkingId: string) {
+  await sendRequest("POST", `/api/bookings/${parkingId}/cancel`);
+}

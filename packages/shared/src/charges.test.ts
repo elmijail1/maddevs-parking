@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { calculateCharge, formatCents } from "./charges";
-import { lastRateBoundaryAtOrBefore, nextRateBoundaryAfter } from "./rates";
+import { getRatePerMinuteCents, lastRateBoundaryAtOrBefore, nextRateBoundaryAfter } from "./rates";
 
 const local = (iso: string) => new Date(`${iso}+04:00`);
+const day = getRatePerMinuteCents("day");
+const night = getRatePerMinuteCents("night");
 
 describe("calculateCharge", () => {
   it.each([
@@ -16,7 +18,7 @@ describe("calculateCharge", () => {
   it("charges only full minutes", () => {
     const charge = calculateCharge(local("2026-10-28T10:01:00"), local("2026-10-28T11:00:30"));
 
-    expect(charge).toMatchObject({ minutes: 59, totalCents: 59 * 20, segments: [{ rate: "day", minutes: 59 }] });
+    expect(charge).toMatchObject({ minutes: 59, totalCents: 59 * day, segments: [{ rate: "day", minutes: 59 }] });
     expect(charge.chargedUntil).toEqual(local("2026-10-28T11:00:00"));
   });
 
@@ -25,7 +27,7 @@ describe("calculateCharge", () => {
 
     expect(charge).toMatchObject({
       minutes: 75,
-      totalCents: 30 * 20 + 45 * 10,
+      totalCents: 30 * day + 45 * night,
       segments: [
         { rate: "day", minutes: 30 },
         { rate: "night", minutes: 45 },
@@ -40,7 +42,7 @@ describe("calculateCharge", () => {
       { rate: "night", minutes: 1 },
       { rate: "day", minutes: 1 },
     ]);
-    expect(charge.totalCents).toBe(10 + 20);
+    expect(charge.totalCents).toBe(night + day);
   });
 
   it("starts with the new rate when parking starts exactly at a switch", () => {
@@ -53,7 +55,7 @@ describe("calculateCharge", () => {
     const charge = calculateCharge(local("2026-10-28T00:00:00"), local("2026-10-30T00:00:00"));
 
     expect(charge.minutes).toBe(48 * 60);
-    expect(charge.totalCents).toBe(2 * (12 * 60 * 20 + 12 * 60 * 10));
+    expect(charge.totalCents).toBe(2 * (12 * 60 * day + 12 * 60 * night));
     expect(charge.segments.map((s) => s.rate)).toEqual(["night", "day", "night", "day", "night"]);
   });
 });

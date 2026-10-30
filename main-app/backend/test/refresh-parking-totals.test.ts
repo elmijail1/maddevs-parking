@@ -1,5 +1,9 @@
+import { getRatePerMinuteCents } from "@parking/shared";
 import { describe, expect, it } from "vitest";
 import { refreshParkingTotals } from "../src/services/parkings";
+
+const day = getRatePerMinuteCents("day");
+const night = getRatePerMinuteCents("night");
 
 const local = (iso: string) => new Date(`${iso}+04:00`);
 
@@ -11,7 +15,7 @@ describe("refreshParkingTotals", () => {
   it("moves latestTotalUpdate only by the charged full minutes", () => {
     const refreshed = refreshParkingTotals(parkingSince(local("2026-10-28T10:01:30")), local("2026-10-28T10:05:50"));
 
-    expect(refreshed.total).toBe(4 * 20);
+    expect(refreshed.total).toBe(4 * day);
     expect(refreshed.latestTotalUpdate).toEqual(local("2026-10-28T10:05:30"));
   });
 
@@ -34,7 +38,7 @@ describe("refreshParkingTotals", () => {
     const refreshed = refreshParkingTotals(parking, local("2026-10-28T20:30:30"));
 
     expect(refreshed).toEqual({
-      total: 100 + 30 * 20 + 30 * 10,
+      total: 100 + 30 * day + 30 * night,
       latestTotalUpdate: local("2026-10-28T20:30:00"),
       currentRate: "night",
       latestRateChange: local("2026-10-28T20:00:00"),
