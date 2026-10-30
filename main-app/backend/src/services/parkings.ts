@@ -1,4 +1,5 @@
 import { calculateCharge, getRateTypeAt, lastRateBoundaryAtOrBefore } from "@parking/shared";
+import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "../db";
 import type { Parking } from "../generated/prisma/client";
 
@@ -45,16 +46,39 @@ export async function claimVacantSpace(regNumber: string, mode: keyof typeof cla
         data: { status: spaceStatus, relatedVehicle: regNumber },
       });
       if (count === 0) {
-        return false;
+        return null;
       }
-      await tx.parking.create({
+      return tx.parking.create({
         data: { status: parkingStatus, vehicleRegNumber: regNumber, spaceId: id, ...parkingTimesFrom(activeSince) },
       });
-      return true;
     });
     if (claimed) {
-      return id;
+      return claimed;
     }
   }
   return null;
+}
+
+export async function cancelBookedParking(parkingId: string, log: FastifyBaseLogger) {
+  return prisma.$transaction(async (tx) => {
+    const parking = await tx.parking.findUnique({ where: { id: parkingId } });
+    const { count } = await tx.parking.updateMany({
+      where: { id: parkingId, status: "booked" },
+      data: { status: "cancelled" },
+    });
+    if (!parking || count === 0) {
+      return "booking_not_active" as const;
+    }
+    const freed = await tx.space.updateMany({
+      where: { id: parking.spaceId, status: "booked", relatedVehicle: parking.vehicleRegNumber },
+      data: { status: "vacant", relatedVehicle: null },
+    });
+    if (freed.count === 0) {
+      log.warn(
+        { parkingId, spaceId: parking.spaceId, regNumber: parking.vehicleRegNumber },
+        "Cancelled booking's space wasn't booked for its vehicle, the space was left as it is",
+      );
+    }
+    return "cancelled" as const;
+  });
 }

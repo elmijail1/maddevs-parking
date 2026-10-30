@@ -7,6 +7,17 @@
 - Write as few comments as possible, in code and config files alike. Add one only when something truly can't be understood without it.
 - When starting a server yourself for a check, point it at the test database (`DATABASE_URL` = `TEST_DATABASE_URL`) so the user's development data stays untouched, and stop it by its port afterwards (`kill $(lsof -t -iTCP:<port> -sTCP:LISTEN)`). Killing the `pnpm`/`tsx` wrapper leaves the Node process running.
 
+## Working on a step of the implementation plan
+- **Before starting a step:** study it in [docs/implementation-plan.md](docs/implementation-plan.md) (and the related parts of the other docs and the code), then in the chat:
+  - summarize the step
+  - explain what you'd suggest building
+  - ask clarifying questions, **at least 3**, each with your recommendation, even if the step looks straightforward. The answers give more context, and the questions show how well the intention and the technical side are understood.
+  - Don't write code for the step until the questions are answered.
+- **After finishing a step:** in the chat:
+  - list what was done (backend, frontend, tests, docs, anything changed outside the step)
+  - say what the user has to run (migrations, installs, env variables)
+  - suggest how the user can live-check it themselves: the commands to run and what to click or look for
+
 ## Project context
 Read these before working on the project:
 - [docs/assignment.md](docs/assignment.md) – the original assignment: requirements, stack, expected results
@@ -20,6 +31,7 @@ Repo layout (pnpm workspace):
 - `main-app/frontend` – the user-facing app (React)
 - `bar-post-mock-app` – a minimal mock of the bar post: a CLI taking `regNumber` + `direction`, no DB
 - `payment-terminal-mock-app` – a minimal mock of the payment terminal: a CLI taking a payment status, no DB
+- `email-service-mock-app` – a minimal mock of an email provider: prints each email it gets and answers with success, no DB
 - `packages/shared` – Zod schemas, types, and business config (rates, timezone) used by all apps
 
 Only the main app is built fully; keep the mocks as simple as possible.
@@ -31,6 +43,7 @@ Only the main app is built fully; keep the mocks as simple as possible.
 - `pnpm --filter @parking/backend test <file-substring>` / `-t "<test name>"` – run selected backend tests
 - `pnpm bar-post --reg XX000XX --direction in|out` – simulate a car at the bar post (needs the backend running; exits also need the payment terminal)
 - `pnpm payment-terminal` – start the payment terminal mock (stays running, type the payment result when a session arrives)
+- `pnpm email-service` – start the email service mock (stays running, prints the booking reminders it receives)
 - `pnpm --filter @parking/backend dev` – run the main backend with reload on change
 - `pnpm frontend` – run the frontend dev server (Vite, http://localhost:5173, proxies `/api` to `MAIN_APP_URL`)
 - `pnpm --filter @parking/backend db:migrate` – create and apply migrations

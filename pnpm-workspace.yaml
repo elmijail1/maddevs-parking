@@ -3,6 +3,7 @@ packages:
   - main-app/frontend
   - bar-post-mock-app
   - payment-terminal-mock-app
+  - email-service-mock-app
   - packages/*
 allowBuilds:
   '@prisma/engines': true

@@ -2,6 +2,7 @@ import { bookSpaceRequestSchema, type BookingResponse, type MyParkingsResponse }
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { requireUser } from "../plugins/user-auth";
+import { cancelBookingJobs, scheduleBookingJobs } from "../services/booking-jobs";
 import { bookSpace, cancelBooking, listMyParkings } from "../services/bookings";
 import { notifySpacesChanged } from "../services/spaces";
 
@@ -20,6 +21,7 @@ export const bookingRoutes: FastifyPluginAsync = async (app) => {
     if ("error" in result) {
       return reply.code(errorStatus[result.error]).send(result);
     }
+    scheduleBookingJobs({ id: result.booking.parkingId, activeSince: new Date(result.booking.expiresAt) }, request.log);
     notifySpacesChanged(request.log);
     return reply.code(201).send(result satisfies BookingResponse);
   });
@@ -33,6 +35,7 @@ export const bookingRoutes: FastifyPluginAsync = async (app) => {
     if (result !== "cancelled") {
       return reply.code(result === "not_found" ? 404 : 409).send({ error: result });
     }
+    cancelBookingJobs(params.data.parkingId);
     notifySpacesChanged(request.log);
     return reply.code(204).send();
   });

@@ -2,7 +2,7 @@ import { bookingExpirationMinutes, defaultCarDisplayName, type Booking, type MyP
 import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "../db";
 import { Prisma } from "../generated/prisma/client";
-import { parkingTimesFrom } from "./parkings";
+import { cancelBookedParking, parkingTimesFrom } from "./parkings";
 
 export type BookSpaceResult = { booking: Booking } | { error: "space_unavailable" | "car_not_found" | "vehicle_busy" };
 
@@ -87,24 +87,5 @@ export async function cancelBooking(
     return "not_found";
   }
 
-  return prisma.$transaction(async (tx) => {
-    const { count } = await tx.parking.updateMany({
-      where: { id: parkingId, status: "booked" },
-      data: { status: "cancelled" },
-    });
-    if (count === 0) {
-      return "booking_not_active";
-    }
-    const freed = await tx.space.updateMany({
-      where: { id: parking.spaceId, status: "booked", relatedVehicle: parking.vehicleRegNumber },
-      data: { status: "vacant", relatedVehicle: null },
-    });
-    if (freed.count === 0) {
-      log.warn(
-        { parkingId, spaceId: parking.spaceId, regNumber: parking.vehicleRegNumber },
-        "Cancelled booking's space wasn't booked for its vehicle, the space was left as it is",
-      );
-    }
-    return "cancelled";
-  });
+  return cancelBookedParking(parkingId, log);
 }

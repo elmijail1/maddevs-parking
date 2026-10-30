@@ -6,6 +6,25 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 30.10. Step 11 (booking reminders and automatic expiry)
+
+### One in-memory timer per job, rebuilt on startup
+- **Decision:** a small scheduler (`setTimeout` per job, keyed by parking id, `unref`'d so it never keeps the process alive). When a booking is created (from the app or by the bar post for a car without one), two jobs are scheduled at once: the **reminder** 10 minutes before the expiry and the **expiry** 30 seconds after it (e.g. 10:05 and 10:15:30 for a 10:15 booking). Both are cancelled when the car enters, the booking is cancelled, or the car leaves. Every job also re-checks that the parking is still `booked` when it runs.
+- **Why:** the plan asks for per-booking scheduling instead of an interval worker. Scheduling the expiry together with the reminder (not from it, as the plan first said) means the expiry never depends on the email service. The 30 s gap gives the system some slack.
+- **Restarts:** timers only live in memory, so on startup the backend schedules the jobs of every `booked` parking: overdue expiries run at once, reminders whose time has passed are skipped (there's no record of which were sent, see the notifications idea in future-ideas.md).
+- **Alternatives:** an interval worker checking the database (rejected by the plan); a job queue with persistence (overkill for 6 spaces and 15-minute bookings).
+
+### Entering at the last moment
+- **Decision:** when `/api/new-entrance` lets a booked car in, its expiry job is postponed to 2 minutes after that moment (`entranceGraceMinutes`), if that's later than the scheduled one. `activeSince` and the shown expiry time don't change.
+- **Why:** the 30 s gap alone only moves the edge (a car let in at 10:15:29 would race the 10:15:30 job). With the postponement the booking survives until the entrance is registered; if the car turns back, it still expires soon. The step 10 fallback stays as a safety net (e.g. if the backend restarts during those 2 minutes).
+
+### Who gets the reminder, and the email mock
+- **Recipients:** every user who has the car active on their list, also for bookings the bar post made (a car that turns around leaves a real 15-minute booking). Nobody is emailed if nobody has the car. Linking parkings to the user who made them, to notify just them, is in future-ideas.md.
+- **Email service:** a separate mock app (`email-service-mock-app`, `POST /emails` with the API key, port 3002) that waits a second, prints the email and answers with success, like the payment terminal mock. The backend calls it through `sendEmail` with a 5 s timeout; a failure (only when the mock is offline) logs a warning and nothing else. A notifications model to track sent and failed emails is in future-ideas.md.
+- **Text:** subject "Your booking of A1 expires at 10:15", body "Your booking for AA111AA expires at 10:15. Please enter the parking lot before then."
+
+---
+
 ## 30.10. Step 10 (cancelling a booking)
 
 ### Cancellation keeps the parking's times
@@ -246,7 +265,7 @@ The baseline technical and business decisions made before development started ar
 - **Alternatives:** a dedicated log table or service.
 
 ### Walk-in entrance without a later new-parking call
-- **Decision:** accept the gap. If a car without a booking gets a "yes" from `/api/new-entrance` (a space gets booked for it) but `/api/new-parking` never arrives, the booking stays until it expires normally after 15 minutes (the expiry worker comes in a later step).
+- **Decision:** accept the gap. If a car without a booking gets a "yes" from `/api/new-entrance` (a space gets booked for it) but `/api/new-parking` never arrives, the booking stays until it expires normally after 15 minutes (the expiry worker comes in a later step). (Since step 11 such bookings get the reminder and expire like any other.)
 - **Why:** it behaves exactly like a normal booking, and the window is short enough not to matter.
 
 ### Spaces

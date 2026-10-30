@@ -6,10 +6,12 @@ import { carRoutes } from "./routes/cars";
 import { deviceRoutes } from "./routes/devices";
 import { profileRoutes } from "./routes/profile";
 import { spaceRoutes } from "./routes/spaces";
+import { cancelAllJobs } from "./services/scheduler";
 
 export function buildApp(options: FastifyServerOptions = { logger: true }) {
   const app = Fastify({ forceCloseConnections: true, ...options });
   registerUserAuth(app);
+  app.addHook("onClose", async () => cancelAllJobs());
   app.register(deviceRoutes, { prefix: "/api" });
   app.register(authRoutes, { prefix: "/api" });
   app.register(profileRoutes, { prefix: "/api" });

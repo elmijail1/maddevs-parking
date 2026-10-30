@@ -83,3 +83,10 @@ export const paymentStatusResponseSchema = z.object({
   status: paymentStatusSchema,
 });
 export type PaymentStatusResponse = z.infer<typeof paymentStatusResponseSchema>;
+
+export const sendEmailRequestSchema = z.object({
+  to: z.email(),
+  subject: z.string().min(1),
+  text: z.string().min(1),
+});
+export type SendEmailRequest = z.infer<typeof sendEmailRequestSchema>;

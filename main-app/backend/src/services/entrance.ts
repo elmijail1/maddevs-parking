@@ -2,6 +2,7 @@ import { bookingExpirationMinutes, type NewEntranceResponse } from "@parking/sha
 import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "../db";
 import { Prisma } from "../generated/prisma/client";
+import { postponeBookingExpiry, scheduleBookingJobs } from "./booking-jobs";
 import { claimVacantSpace } from "./parkings";
 
 export async function allowEntrance(
@@ -30,13 +31,21 @@ export async function allowEntrance(
     );
   }
   if (ownSpaces.length > 0) {
+    const booking = await prisma.parking.findFirst({ where: { vehicleRegNumber: regNumber, status: "booked" } });
+    if (booking) {
+      postponeBookingExpiry(booking.id, log, now);
+    }
     return { allowed: true };
   }
 
   const activeSince = new Date(now.getTime() + bookingExpirationMinutes * 60_000);
   try {
-    const spaceId = await claimVacantSpace(regNumber, "book", activeSince);
-    return spaceId ? { allowed: true } : { allowed: false, reason: "no_available_spaces" };
+    const booking = await claimVacantSpace(regNumber, "book", activeSince);
+    if (!booking) {
+      return { allowed: false, reason: "no_available_spaces" };
+    }
+    scheduleBookingJobs(booking, log, now);
+    return { allowed: true };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       log.error(

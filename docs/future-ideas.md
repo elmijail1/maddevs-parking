@@ -24,3 +24,13 @@
 - Login tokens are JWTs that the server doesn't keep track of: changing the password doesn't log out other browsers or devices, their tokens stay valid until they expire (14 days).
 - A `passwordChangedAt` field on the user, checked on every protected request against the token's issue time, would reject tokens issued before the change. It costs a database lookup per request.
 - Possible benefit: if someone else got into the account, changing the password locks them out at once.
+
+## Linking parkings to the user who made them
+- Currently a parking only knows its vehicle, and a car can be on several users' lists, so the app can't tell which user made a booking.
+- A `userId` on the parking (empty for walk-ins from the bar post) would give each user a precise history of the parkings they made. That isn't the same as "paid by": payments happen at the terminal, so the app never knows who actually paid.
+- It would also make notifications precise: the booking reminder could go only to the user who made the booking instead of everyone who has the car on their list.
+
+## A data model for notifications
+- Booking reminders are currently sent and forgotten: if the email service is offline, a warning is logged and nothing else remembers that the email wasn't sent.
+- A `Notification` model (recipient, type, related parking, status: pending / sent / failed, timestamps) would record every email, much like payments are recorded with their statuses.
+- Possible benefit: observability (what was sent, what failed and when) and a basis for retrying failed emails.

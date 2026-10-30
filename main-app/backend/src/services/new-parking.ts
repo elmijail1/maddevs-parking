@@ -2,6 +2,7 @@ import { newParkingRequestSchema } from "@parking/shared";
 import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "../db";
 import type { Parking, Space } from "../generated/prisma/client";
+import { cancelBookingJobs } from "./booking-jobs";
 import { claimVacantSpace, parkingTimesFrom } from "./parkings";
 
 export type NewParkingResult = "activated" | "already_active" | "cancelled" | "no_space";
@@ -45,6 +46,7 @@ async function activateBookedParking(
 
   if (space.status !== "vacant" && space.relatedVehicle !== regNumber) {
     await prisma.parking.update({ where: { id: parking.id }, data: { status: "cancelled" } });
+    cancelBookingJobs(parking.id);
     log.error({ critical: true, ...context }, "Booked space is held by another vehicle, the booking was cancelled");
     return "cancelled";
   }
@@ -63,6 +65,7 @@ async function activateBookedParking(
     await tx.space.update({ where: { id: space.id }, data: { status: "occupied", relatedVehicle: regNumber } });
     return true;
   });
+  cancelBookingJobs(parking.id);
   if (!activated) {
     log.warn(context, "Booking ended before the entrance was registered, treating it as an entrance without a booking");
     return createParkingWithoutBooking(regNumber, time, log);
@@ -90,11 +93,11 @@ async function createParkingWithoutBooking(regNumber: string, time: Date, log: F
     return "activated";
   }
 
-  const spaceId = await claimVacantSpace(regNumber, "occupy", time);
-  if (!spaceId) {
+  const claimed = await claimVacantSpace(regNumber, "occupy", time);
+  if (!claimed) {
     log.error({ critical: true, regNumber }, "Vehicle entered the lot but there is no space for it");
     return "no_space";
   }
-  log.warn({ regNumber, spaceId }, "Vehicle entered without a booking, a vacant space was assigned to it");
+  log.warn({ regNumber, spaceId: claimed.spaceId }, "Vehicle entered without a booking, a vacant space was assigned to it");
   return "activated";
 }

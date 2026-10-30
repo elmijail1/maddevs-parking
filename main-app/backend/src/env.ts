@@ -10,6 +10,7 @@ const envSchema = z.object({
   MAIN_APP_PORT: z.coerce.number().int().positive().default(3000),
   SERVICE_API_KEY: z.string().min(16),
   PAYMENT_TERMINAL_URL: z.url(),
+  EMAIL_SERVICE_URL: z.url().default("http://localhost:3002"),
   JWT_SECRET: z.string().min(32),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });

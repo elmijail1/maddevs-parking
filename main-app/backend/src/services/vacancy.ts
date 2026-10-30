@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import { prisma } from "../db";
+import { cancelBookingJobs } from "./booking-jobs";
 import { refreshParkingTotals } from "./parkings";
 
 export async function handleCarExit(regNumber: string, log: FastifyBaseLogger, now = new Date()) {
@@ -36,6 +37,7 @@ export async function handleCarExit(regNumber: string, log: FastifyBaseLogger, n
     for (const parking of openParkings) {
       if (parking.status === "booked") {
         await tx.parking.update({ where: { id: parking.id }, data: { status: "cancelled" } });
+        cancelBookingJobs(parking.id);
         log.warn({ regNumber, parkingId: parking.id }, "Booked parking of a vehicle that left was cancelled");
         continue;
       }

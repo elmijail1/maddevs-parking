@@ -1,0 +1,18 @@
+{
+  "name": "@parking/email-service-mock",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "tsx src/email-service.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@parking/shared": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

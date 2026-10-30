@@ -15,6 +15,12 @@ export const timezoneOffsetMinutes = 4 * 60;
 
 export const bookingExpirationMinutes = 15;
 
+export const bookingReminderMinutesBeforeExpiry = 10;
+
+export const bookingExpiryGapSeconds = 30;
+
+export const entranceGraceMinutes = 2;
+
 export const paymentSessionTimeoutMinutes = 5;
 
 export const paymentResultGraceSeconds = 30;

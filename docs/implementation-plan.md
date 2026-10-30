@@ -165,21 +165,22 @@ Now we need to add booking cancellation.
 - - 1. A user cancels a booking and both related objects get updated properly.
 - - 2. A user cancels a booking, comes back to the diagram, and the previously booked space isn't highlighted anymore, and it's available (green and clickable).
 
+
 - 11. Booking behavior as time elapses and automatic cancellation
 Now we must make use of time-related mechanisms that control bookings.
-- The user has booked the car and hasn't showed up. 10 minutes before the expiration (i.e. 5 minutes after the booking started in our case), an email is sent to the user's email.
-- The email service must be mocked: we just send a request and get a positive response after a 1-second timeout or something.
+- The user has booked the car and hasn't showed up. 10 minutes before the expiration (i.e. 5 minutes after the booking started in our case), an email is sent to the users who have the car on their list (a parking doesn't know which user made it yet). This also applies to bookings made by the bar post for cars that arrived without one: if such a car turns around and leaves, it's a real 15-minute booking.
+- The email service must be mocked: a separate mock app; we just send a request and get a positive response after a 1-second timeout or something. Sending only fails if the mock is offline.
 - This email dispatch must happen at a certain scheduled moment, so we'll need Cron or something similar to do that. We know the exact dispatch time from the beginning: 10 minutes before the expiration time. Since the duration of a booking isn't long (just 15 minutes) and we don't have many spaces (just 6), it will be an overkill to have some interval-based Cron workers that would check if it's time to dispatch a newsletter. So we can just schedule the dispatch for each booking indivdually upon creation of a booking.
-- As soon as we changed the space's status to booked and created a related parking, we also schedule a worker at "expiration time - 10 minutes".
+- As soon as we changed the space's status to booked and created a related parking, we also schedule a worker at "expiration time - 10 minutes", and the expiration worker at once too (not from the email worker, so the expiration never depends on the email service). When the booking turns into a parking (the car enters) or is cancelled, both workers are cancelled.
 - The contents of the email don't matter.
 - We deliberately aren't making a separate data model for it for simpliciation, although I would make one for a real-life case.
-- The email worker ran, now it must schedule another worker: the one that actually cancels the booking at the expiration time. It must be scheduled right at the expiration time taken from the related parking object. What it does: changes the space's status to vacant and nullifies the relatedVehicle, then cancels the booking (its time-related fields are kept, as with a manual cancellation).
+- The expiration worker actually cancels the booking. It runs 30 seconds after the expiration time taken from the related parking object (e.g. at 10:15:30 for 10:15), which gives the system a small gap. When the bar post lets a booked car in, the worker is postponed to 2 minutes after that moment (if that's later), so that the booking doesn't expire between the bar opening and the main system registering the entrance; the shown expiration time doesn't change. What it does: changes the space's status to vacant and nullifies the relatedVehicle, then cancels the booking (its time-related fields are kept, as with a manual cancellation).
 - The server sends an update on this change just as it would with any other space update.
 - success criteria cases to test:
 - - 1. A user booked a space but hasn't showed up for 5 minutes – an email was sent to them (we got a response from the mocked email service).
 - - 2. A user booked a space but hasn't showed up for 15+ minutes – the booking got cancelled automatically and they now don't see any highlighted space in the diagram.
 
-- 11. Tracing a parking
+- 12. Tracing a parking
 How does a user interact with the space and the parking when their parking is active?
 - When the parking is active, the user sees the related space as highlighted (yellow and pulsating). It looks the same as a booked parking from the diagram.
 - Clicking it shows another window: it shows the total charge, since when the parking is active, and what the current rate is.
@@ -187,7 +188,7 @@ How does a user interact with the space and the parking when their parking is ac
 - success criteria cases to test:
 - - 1. A user clicks a space occupied by their car and sees the current total and rate
 
-- 12. UI for parking history
+- 13. UI for parking history
 Another page: /history. Must also be added to the header. Only available to authenticated users.
 - Shows a list of cards (similar to those for cars in My cars) with parkings.
 - Each card: Car's display name, date, car number, total, status.
@@ -202,7 +203,7 @@ Another page: /history. Must also be added to the header. Only available to auth
 - - 4. Removing a car affects the parking list: associated parkings aren't shown anymore
 - - 5. Returning the car back doesn't bring back parkings made before the removal – but new ones are shown
 
-- 13. Managing multiple bookings and occupations
+- 14. Managing multiple bookings and occupations
 The user can have multiple cars on the list.
 - They can book multiple spaces for different cars. This should work properly: both spaces are highlighted, clicking both shows the expected dialog and allows cancelling, both make it clear which car is associated (the registration number).
 - They can have one space book while another occupied. Both spaces are highlighted, clicking them shows the expected dialog (booking for one, occupation for the other), the former allows cancelling, the latter triggers a total update.
@@ -213,7 +214,7 @@ The user can have multiple cars on the list.
 - - 3. Having some spaces booked and some occupied from the same account works as expected: multiple spaces become highlighted, show the expected dialog on click, can be cancelled OR trigger a total and rate update, and the related objects get updated respectively (spaces and parkings)
 
 
-- 14. Concurrency control
+- 15. Concurrency control
 The task explicitly requires to handle multiple tabs. So we must make sure the app works stably for that.
 - success criteria cases to test:
 - - 1. Booking a space in one tab updates the space in both tabs (two different users): in the one it was booked it becomes highlighted, in the other – unavailable.

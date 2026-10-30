@@ -4,6 +4,9 @@
 - Added POST /api/bookings/:parkingId/cancel (owner check, conditional updates, SSE announcement) and the entrance fallback for a booking cancelled after the car was let in. 9 new backend tests (196 in total).
 - Made the charge tests compute amounts from the configured rates, after the base rate was changed to 2¢ a minute.
 - Enabled Cancel booking on /spaces with a confirmation dialog, the "Booking cancelled" message and the "can no longer be cancelled" case. 5 new frontend tests (109 in total). Checked cancelling, another user's attempt and the SSE update through the Vite proxy.
+- Added a "Working on a step of the implementation plan" section to AGENTS.md: summarize the step, propose what to build and ask at least 3 questions before coding; afterwards list what was done, what to run, and how to live-check it.
+- Step 11 (booking reminders and automatic expiry): agreed on the details (all users with the car get the reminder, including bar-post bookings; a separate email mock; both jobs scheduled at once and cancelled on entry; expiry 30 s after the expiry time plus a 2-minute in-memory postponement when a booked car is let in). Updated implementation-plan.md and added two future ideas (parkings linked to users, a notifications model).
+- Added the email service mock app (`pnpm email-service`), an in-memory scheduler, the booking reminder and expiry jobs (scheduled on booking and walk-in bookings, cancelled on entry, cancellation and exit, rebuilt on startup), and the expiry postponement on entrance. 20 new backend tests (216 in total). Checked startup rescheduling, an overdue expiry and a reminder with real timers against the test DB.
 
 29.10. Step 3 (allowExit):
 - Added the charge calculation to the shared package: full minutes only, split at the 08:00/20:00 rate boundaries, plus money formatting, with unit tests.
