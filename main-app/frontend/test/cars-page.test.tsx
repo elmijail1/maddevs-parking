@@ -3,6 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeEventSource, json, mockApi, renderApp, requestsTo, resetApi } from "./helpers";
+import { FakeIntersectionObserver } from "./setup";
 
 const jeep: Car = {
   id: "00000000-0000-4000-8000-000000000c01",
@@ -19,7 +20,7 @@ const van: Car = {
 const newCar = { regNumber: "CC333CC", vin: "1HGCM82633A004352", certificateNumber: "CERT123" };
 
 function serveCars(cars: Car[]) {
-  mockApi({ "GET /api/cars": () => json(200, { cars }) });
+  mockApi({ "GET /api/cars": () => json(200, { cars, nextCursor: null }) });
 }
 
 async function openCars(cars: Car[] = [jeep, van]) {
@@ -108,6 +109,77 @@ describe("cars page", () => {
   });
 });
 
+describe("long car lists", () => {
+  const manyCars = Array.from({ length: 13 }, (_, index) => ({
+    ...jeep,
+    id: `00000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
+    regNumber: `CAR${String(index).padStart(2, "0")}`,
+  }));
+
+  function serveManyCars() {
+    mockApi({
+      "GET /api/cars": () => json(200, { cars: manyCars.slice(0, 10), nextCursor: "next" }),
+      "GET /api/cars?cursor=next": () => json(200, { cars: manyCars.slice(10), nextCursor: null }),
+    });
+  }
+
+  it("loads 10 cars first and the rest when scrolled to the end", async () => {
+    serveManyCars();
+    renderApp("/cars");
+    await screen.findByRole("list", { name: "Your cars" });
+    expect(cardNames()).toHaveLength(10);
+
+    FakeIntersectionObserver.scrollToEnd();
+
+    await waitFor(() => expect(cardNames()).toHaveLength(13));
+    expect(screen.getByText("That's all your cars.")).toBeInTheDocument();
+  });
+
+  it("loads the rest with the Load more button too", async () => {
+    serveManyCars();
+    renderApp("/cars");
+    await screen.findByRole("list", { name: "Your cars" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+
+    await waitFor(() => expect(cardNames()).toHaveLength(13));
+  });
+
+  it("keeps the title and the Add car button at the top while scrolling", async () => {
+    await openCars();
+
+    const title = within(screen.getByTestId("sticky-title"));
+    expect(screen.getByTestId("sticky-title")).toHaveClass("sticky");
+    expect(title.getByRole("heading", { name: "My Cars" })).toBeInTheDocument();
+    expect(title.getByRole("button", { name: "Add car" })).toBeInTheDocument();
+  });
+
+  it("renames and removes cars on any loaded page", async () => {
+    serveManyCars();
+    const last = manyCars[12]!;
+    mockApi({
+      [`PATCH /api/cars/${last.id}`]: () => json(200, { car: { ...last, displayName: "Last one" } }),
+      [`DELETE /api/cars/${manyCars[11]!.id}`]: () => json(204),
+    });
+    renderApp("/cars");
+    await screen.findByRole("list", { name: "Your cars" });
+    FakeIntersectionObserver.scrollToEnd();
+    await waitFor(() => expect(cardNames()).toHaveLength(13));
+
+    await userEvent.click(card(last.regNumber).getByRole("button", { name: `Edit ${last.regNumber}` }));
+    const name = card(last.regNumber).getByLabelText("Display name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Last one");
+    await userEvent.click(card(last.regNumber).getByRole("button", { name: "Save" }));
+    expect(await card(last.regNumber).findByRole("heading", { name: "Last one" })).toBeInTheDocument();
+
+    await userEvent.click(card("CAR11").getByRole("button", { name: "Delete CAR11" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(cardNames()).toHaveLength(12));
+    expect(cardNames()).not.toContain("CAR11");
+  });
+});
+
 describe("adding a car", () => {
   it("sends the normalized values and puts the new car first", async () => {
     const added: Car = { ...jeep, id: "00000000-0000-4000-8000-000000000c03", regNumber: "CC333CC", displayName: "Mum's car" };
@@ -176,6 +248,7 @@ describe("adding a car", () => {
   it.each([
     ["vehicle_mismatch", "The VIN or certificate number doesn't match this car."],
     ["already_added", "This car is already in your list."],
+    ["car_limit_reached", "You can have up to 20 cars. Remove one to add another."],
   ])("shows the server's %s error and keeps the dialog open", async (error, message) => {
     mockApi({ "POST /api/cars": () => json(409, { error }) });
     await openCars();

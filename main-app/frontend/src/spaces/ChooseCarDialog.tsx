@@ -16,7 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiRequestError } from "../api-request";
 import { AddCarDialog } from "../cars/AddCarDialog";
-import { carsQueryKey, fetchCars } from "../cars/api";
+import { allCarsQueryKey, fetchAllCars } from "../cars/api";
 import { bookSpace, myParkingsQueryKey } from "./api";
 import { useMyParkings } from "./use-spaces";
 
@@ -36,7 +36,7 @@ export function ChooseCarDialog({
   onUnavailable: () => void;
 }) {
   const queryClient = useQueryClient();
-  const cars = useQuery({ queryKey: carsQueryKey, queryFn: fetchCars });
+  const cars = useQuery({ queryKey: allCarsQueryKey, queryFn: fetchAllCars });
   const myParkings = useMyParkings();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addingCar, setAddingCar] = useState(false);
@@ -65,7 +65,7 @@ export function ChooseCarDialog({
         void queryClient.invalidateQueries({ queryKey: myParkingsQueryKey });
       } else if (code === "car_not_found") {
         setError("This car is no longer in your list.");
-        void queryClient.invalidateQueries({ queryKey: carsQueryKey });
+        void queryClient.invalidateQueries({ queryKey: allCarsQueryKey });
       } else {
         setError("Something went wrong. Please try again.");
       }
@@ -78,6 +78,7 @@ export function ChooseCarDialog({
       availableCars.length > 0 ? (
         <RadioGroup
           aria-label="Your cars"
+          className="max-h-40 w-full flex-nowrap overflow-y-auto rounded border border-gray-200 px-3"
           value={selected?.id ?? ""}
           onChange={(event) => {
             setSelectedId(event.target.value);

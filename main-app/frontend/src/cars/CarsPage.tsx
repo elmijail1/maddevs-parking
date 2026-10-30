@@ -12,11 +12,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import { InfiniteListFooter } from "../components/InfiniteListFooter";
+import { StickyTitle } from "../components/StickyTitle";
 import { collectErrors } from "../forms";
 import { AddCarDialog } from "./AddCarDialog";
-import { carsQueryKey, fetchCars, removeCar, renameCar } from "./api";
+import { carsQueryKey, changeCachedCars, fetchCars, removeCar, renameCar } from "./api";
 
 const carChangeMutationKey = ["changeCar"];
 
@@ -31,7 +33,7 @@ function useCarChange<T, R>(
     mutationKey: carChangeMutationKey,
     mutationFn,
     onSuccess: (result, variables) => {
-      queryClient.setQueryData<Car[]>(carsQueryKey, (cars) => cars && updateCars(cars, result, variables));
+      changeCachedCars(queryClient, (cars) => updateCars(cars, result, variables));
       onSuccess();
     },
     onError: onFailed,
@@ -177,10 +179,14 @@ function RemoveCarDialog({ car, onClose, onFailed }: { car: Car | null; onClose:
 }
 
 export function CarsPage() {
-  const { data: cars, isPending, isError, isFetching, refetch } = useQuery({
+  const carsQuery = useInfiniteQuery({
     queryKey: carsQueryKey,
-    queryFn: fetchCars,
+    queryFn: ({ pageParam }) => fetchCars(pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
+  const { isPending, isError, isFetching, refetch } = carsQuery;
+  const cars = carsQuery.data?.pages.flatMap((page) => page.cars);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Car | null>(null);
@@ -205,20 +211,30 @@ export function CarsPage() {
     );
   } else if (cars) {
     content = (
-      <ul aria-label="Your cars" className="flex flex-col gap-4">
-        {cars.map((car) => (
-          <CarCard
-            key={car.id}
-            car={car}
-            editing={editingId === car.id}
-            locked={editingId !== null}
-            onEdit={() => setEditingId(car.id)}
-            onDelete={() => setRemoving(car)}
-            onDone={() => setEditingId(null)}
-            onFailed={() => setFailed(true)}
-          />
-        ))}
-      </ul>
+      <>
+        <ul aria-label="Your cars" className="flex flex-col gap-4">
+          {cars.map((car) => (
+            <CarCard
+              key={car.id}
+              car={car}
+              editing={editingId === car.id}
+              locked={editingId !== null}
+              onEdit={() => setEditingId(car.id)}
+              onDelete={() => setRemoving(car)}
+              onDone={() => setEditingId(null)}
+              onFailed={() => setFailed(true)}
+            />
+          ))}
+        </ul>
+        <InfiniteListFooter
+          hasNextPage={carsQuery.hasNextPage}
+          isFetchingNextPage={carsQuery.isFetchingNextPage}
+          isFetchNextPageError={carsQuery.isFetchNextPageError}
+          fetchNextPage={carsQuery.fetchNextPage}
+          loadedPages={carsQuery.data?.pages.length ?? 0}
+          endText="That's all your cars."
+        />
+      </>
     );
   } else if (isPending) {
     content = <CircularProgress aria-label="Loading cars" className="self-center" />;
@@ -234,18 +250,16 @@ export function CarsPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-6 p-8">
-      <Typography variant="h4" component="h1">
-        My Cars
-      </Typography>
-      <Button
-        variant="contained"
-        className="self-start"
-        disabled={editingId !== null || !cars || failed}
-        onClick={() => setAdding(true)}
+    <main className="mx-auto flex max-w-xl flex-col gap-6 px-8 pb-8">
+      <StickyTitle
+        action={
+          <Button variant="contained" disabled={editingId !== null || !cars || failed} onClick={() => setAdding(true)}>
+            Add car
+          </Button>
+        }
       >
-        Add car
-      </Button>
+        My Cars
+      </StickyTitle>
       {content}
 
       <AddCarDialog open={adding} onClose={() => setAdding(false)} onAdded={() => setAdding(false)} />

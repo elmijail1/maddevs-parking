@@ -30,7 +30,7 @@ const bookedJeep: MyParking = {
 function serve({ cars = [jeep, van], mine = [] as MyParking[], lot = spaces() } = {}) {
   mockApi({
     "GET /api/spaces": () => json(200, { spaces: lot }),
-    "GET /api/cars": () => json(200, { cars }),
+    "GET /api/cars": () => json(200, { cars, nextCursor: null }),
     "GET /api/my-parkings": () => json(200, { parkings: mine }),
   });
 }
@@ -66,6 +66,26 @@ describe("choosing a car", () => {
     expect(dialog.getByRole("radio", { name: "Work van (BB222BB)" })).toBeInTheDocument();
     expect(dialog.queryByRole("textbox")).not.toBeInTheDocument();
     expect(dialog.getByRole("button", { name: "Book" })).toBeDisabled();
+  });
+
+  it("lists all the user's cars, even more than 10, in a scrollable box", async () => {
+    const manyCars = Array.from({ length: 12 }, (_, index) => ({
+      ...jeep,
+      id: `00000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
+      regNumber: `CAR${String(index).padStart(2, "0")}`,
+      displayName: `Car ${index}`,
+    }));
+    serve();
+    mockApi({
+      "GET /api/cars": () => json(200, { cars: manyCars.slice(0, 10), nextCursor: "next" }),
+      "GET /api/cars?cursor=next": () => json(200, { cars: manyCars.slice(10), nextCursor: null }),
+    });
+
+    const dialog = await openCarChoice();
+
+    expect(await dialog.findByRole("radio", { name: "Car 11 (CAR11)" })).toBeInTheDocument();
+    expect(dialog.getAllByRole("radio")).toHaveLength(12);
+    expect(dialog.getByRole("radiogroup", { name: "Your cars" })).toHaveClass("max-h-40", "overflow-y-auto");
   });
 
   it("only offers Add new car to a user without cars", async () => {

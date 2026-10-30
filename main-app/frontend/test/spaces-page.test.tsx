@@ -112,7 +112,7 @@ describe("parking lot diagram", () => {
 
   it("shows the space's rates with Close and Book this space buttons", async () => {
     respondWithSpaces(spacesWith("vacant"));
-    mockApi({ "GET /api/cars": () => json(200, { cars: [] }) });
+    mockApi({ "GET /api/cars": () => json(200, { cars: [], nextCursor: null }) });
     renderPage();
 
     await userEvent.click(await available("A3"));

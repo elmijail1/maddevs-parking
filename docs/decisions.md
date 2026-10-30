@@ -6,6 +6,27 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 30.10. Step 13 (parking history)
+
+### Which parkings, in which order
+- **Decision:** `GET /api/history` (behind the login, 10 at a time, see "Infinite lists" below) returns the parkings of the user's active cars created at or after each car's `latestStatusChange`, newest first (by `createdAt`, then id). One `OR` condition per car keeps it in one query, without raw SQL. Removing a car hides its parkings; re-adding it moves `latestStatusChange`, so only newer parkings show; parkings from before the car was first added never show.
+- **All statuses** are listed, cancelled bookings included, with the labels "Booked", "In the lot", "Cancelled", "Finished".
+- **The date** is the entry time (`activeSince`) for parkings that started and the booking time (`createdAt`) for those that didn't; for a booked parking `activeSince` is the expiry, which isn't a meaningful history date.
+
+### Payments on the cards
+- **Decision:** finished parkings show their successful payment: "Paid: $2.84 on 30 Oct 2026, 11:20" (the payment's total and the time it became `success`), or "Left without paying" if there's none (the step 4 unpaid exit). Booked and active parkings show no amount, and failed or cancelled payment attempts aren't shown.
+- **Why:** the assignment asks for a parking and payment history; the current total of an ongoing parking belongs to the diagram, where it's recalculated.
+
+### Infinite lists instead of pagination (history and My Cars)
+- **Decision:** the history and My Cars load 10 items at a time; the next 10 load when the user scrolls near the end of the list (an `IntersectionObserver` on the list's footer) or clicks "Load more" under it. A spinner shows while loading, "Couldn't load more." with Try again on an error, and "That's all your parkings/cars." once everything is loaded (only if more than one batch was loaded). If the loaded items don't fill the screen, the footer is still visible, so the next batch loads by itself.
+- **Cursor-based:** the APIs take `?cursor=` and answer with `nextCursor` (the last item's time and id: `createdAt` for the history, `latestStatusChange` for cars; `null` at the end). Unlike page numbers, a parking or car added while the user scrolls doesn't make the next batch repeat or skip items; the id breaks ties between items with the same time.
+- **The page scrolls as a whole,** with the app header and the page's title row (with the Add car button on My Cars) sticky at the top, instead of a scrollable box inside the page (which would mean two scrollbars, a guessed box height and fighting touch scrolling on phones).
+- **The booking dialog** needs all the user's cars, so it fetches every batch (`fetchAllCars`) under its own query key; adding, renaming and removing a car update both caches.
+- **Why:** the user asked for it after trying the paginated history. It replaced the first version of step 13 (page numbers above and below the list, the page in the URL); the plan's steps 8 and 13 were updated. A reload now starts at the top of the list.
+- "History" sits in the header between My Cars and My Profile.
+
+---
+
 ## 30.10. Step 12 (tracing a parking)
 
 ### Refreshing a parking's total when its dialog opens
@@ -90,6 +111,10 @@ The baseline technical and business decisions made before development started ar
 ### Adding a car
 - **Decision:** `POST /api/cars` finds or creates the vehicle, then compares the VIN and certificate number. A mismatch answers `409 vehicle_mismatch` with one message ("The VIN or certificate number doesn't match this car.") that doesn't say which value is wrong, so they can't be guessed one at a time. A car already active in the list answers `409 already_added`. Two simultaneous adds of the same new car are safe: a unique violation is treated as "the vehicle exists" / "already added".
 - **Routes:** `GET /api/cars`, `POST /api/cars`, `PATCH /api/cars/:id` (display name), `DELETE /api/cars/:id` (deactivate), all behind the login. `:id` is the link's id, scoped to the user from the token, so another user's car answers `404`.
+
+### Up to 20 cars per user
+- **Decision:** a user can have at most 20 active cars (`maxCarsPerUser` in the shared config). Adding or re-adding one more answers `409 car_limit_reached`, shown as "You can have up to 20 cars. Remove one to add another." A quick count before anything else avoids creating a vehicle for a refused car; the authoritative count runs in the same transaction as the insert, after locking the user's row (`SELECT … FOR UPDATE`), so simultaneous adds can't get past the limit.
+- **In the booking dialog,** the car list is a scroll box about 3½ cars tall, so the dialog stays small with many cars.
 
 ### Validation (shared)
 - **Registration and certificate numbers:** 3–15 characters, **VIN:** 5–17, Latin letters and digits only, trimmed and uppercased (so case doesn't matter for matching).

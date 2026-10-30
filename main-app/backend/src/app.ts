@@ -4,6 +4,7 @@ import { authRoutes } from "./routes/auth";
 import { bookingRoutes } from "./routes/bookings";
 import { carRoutes } from "./routes/cars";
 import { deviceRoutes } from "./routes/devices";
+import { historyRoutes } from "./routes/history";
 import { parkingRoutes } from "./routes/parkings";
 import { profileRoutes } from "./routes/profile";
 import { spaceRoutes } from "./routes/spaces";
@@ -19,6 +20,7 @@ export function buildApp(options: FastifyServerOptions = { logger: true }) {
   app.register(carRoutes, { prefix: "/api" });
   app.register(bookingRoutes, { prefix: "/api" });
   app.register(parkingRoutes, { prefix: "/api" });
+  app.register(historyRoutes, { prefix: "/api" });
   app.register(spaceRoutes, { prefix: "/api" });
   return app;
 }

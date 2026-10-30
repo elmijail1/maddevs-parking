@@ -1,10 +1,10 @@
-import { addCarRequestSchema, defaultCarDisplayName, type Car } from "@parking/shared";
+import { addCarRequestSchema, defaultCarDisplayName, maxCarsPerUser, type Car } from "@parking/shared";
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField } from "@mui/material";
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { ApiRequestError } from "../api-request";
 import { collectErrors } from "../forms";
-import { addCar, carsQueryKey } from "./api";
+import { addCar, addCarToCache } from "./api";
 
 const fields = [
   { name: "regNumber", label: "Registration number" },
@@ -20,6 +20,7 @@ const addCarMutationKey = ["addCar"];
 const serverErrorMessages: Record<string, string> = {
   vehicle_mismatch: "The VIN or certificate number doesn't match this car.",
   already_added: "This car is already in your list.",
+  car_limit_reached: `You can have up to ${maxCarsPerUser} cars. Remove one to add another.`,
 };
 
 function AddCarForm({ onClose, onAdded }: { onClose: () => void; onAdded: (car: Car) => void }) {
@@ -37,7 +38,7 @@ function AddCarForm({ onClose, onAdded }: { onClose: () => void; onAdded: (car: 
     mutationKey: addCarMutationKey,
     mutationFn: addCar,
     onSuccess: (car) => {
-      queryClient.setQueryData<Car[]>(carsQueryKey, (cars) => cars && [car, ...cars]);
+      addCarToCache(queryClient, car);
       onAdded(car);
     },
     onError: (error) => {

@@ -1,4 +1,10 @@
-import { addCarRequestSchema, updateCarRequestSchema, type CarResponse, type CarsResponse } from "@parking/shared";
+import {
+  addCarRequestSchema,
+  listQuerySchema,
+  updateCarRequestSchema,
+  type CarResponse,
+  type CarsResponse,
+} from "@parking/shared";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { requireUser } from "../plugins/user-auth";
@@ -9,7 +15,13 @@ const carParamsSchema = z.object({ id: z.uuid() });
 export const carRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("onRequest", requireUser);
 
-  app.get("/cars", async (request): Promise<CarsResponse> => ({ cars: await listCars(request.user.id) }));
+  app.get("/cars", async (request, reply): Promise<CarsResponse | void> => {
+    const query = listQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.code(400).send({ error: "invalid_request" });
+    }
+    return listCars(request.user.id, query.data.cursor);
+  });
 
   app.post("/cars", async (request, reply) => {
     const parsed = addCarRequestSchema.safeParse(request.body);

@@ -15,6 +15,8 @@ export const timezoneOffsetMinutes = 4 * 60;
 
 export const bookingExpirationMinutes = 15;
 
+export const maxCarsPerUser = 20;
+
 export const bookingReminderMinutesBeforeExpiry = 10;
 
 export const bookingExpiryGapSeconds = 30;

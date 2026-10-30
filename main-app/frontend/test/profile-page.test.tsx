@@ -66,6 +66,7 @@ describe("profile page", () => {
   it("has a header to switch between the diagram and the profile", async () => {
     const { router } = await openProfile();
     const nav = within(screen.getByRole("navigation", { name: "Main" }));
+    expect(screen.getByRole("banner")).toHaveClass("MuiAppBar-positionSticky");
     expect(nav.getByRole("link", { name: "My Profile" })).toHaveAttribute("aria-current", "page");
 
     await userEvent.click(nav.getByRole("link", { name: "Parking Diagram" }));

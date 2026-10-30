@@ -50,11 +50,18 @@ export type Car = z.infer<typeof carSchema>;
 export const carResponseSchema = z.object({ car: carSchema });
 export type CarResponse = z.infer<typeof carResponseSchema>;
 
-export const carsResponseSchema = z.object({ cars: z.array(carSchema) });
+export const carsResponseSchema = z.object({ cars: z.array(carSchema), nextCursor: z.string().nullable() });
 export type CarsResponse = z.infer<typeof carsResponseSchema>;
 
 export const carErrorSchema = z.object({
-  error: z.enum(["invalid_request", "vehicle_mismatch", "already_added", "not_found", "unauthorized"]),
+  error: z.enum([
+    "invalid_request",
+    "vehicle_mismatch",
+    "already_added",
+    "car_limit_reached",
+    "not_found",
+    "unauthorized",
+  ]),
 });
 export type CarError = z.infer<typeof carErrorSchema>["error"];
 

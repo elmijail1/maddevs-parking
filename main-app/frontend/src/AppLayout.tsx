@@ -4,6 +4,7 @@ import { Link, Outlet, useMatch } from "react-router";
 const links = [
   { to: "/spaces", label: "Parking Diagram" },
   { to: "/cars", label: "My Cars" },
+  { to: "/history", label: "History" },
   { to: "/profile", label: "My Profile" },
 ];
 
@@ -25,7 +26,7 @@ function NavButton({ to, label }: { to: string; label: string }) {
 export function AppLayout() {
   return (
     <>
-      <AppBar position="static">
+      <AppBar position="sticky">
         <Toolbar className="gap-2">
           <Typography variant="h6" component="span" className="mr-4">
             Parking

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { timezoneOffsetMinutes } from "./config";
-import { rateTypeSchema } from "./schemas";
+import { formatLotDate } from "./cars";
+import { parkingStatusSchema, rateTypeSchema } from "./schemas";
 
 export const bookSpaceRequestSchema = z.object({
   spaceId: z.uuid(),
@@ -79,4 +80,34 @@ export function formatDuration(totalMinutes: number) {
     return plural(minutes, "minute");
   }
   return minutes === 0 ? plural(hours, "hour") : `${plural(hours, "hour")} ${plural(minutes, "minute")}`;
+}
+
+export const historyPaymentSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("paid"),
+    total: z.number().int().nonnegative(),
+    paidAt: z.iso.datetime({ offset: true }),
+  }),
+  z.object({ status: z.literal("unpaid") }),
+]);
+
+export const historyEntrySchema = z.object({
+  parkingId: z.uuid(),
+  regNumber: z.string(),
+  carName: z.string(),
+  spaceName: z.string(),
+  status: parkingStatusSchema,
+  date: z.iso.datetime({ offset: true }),
+  payment: historyPaymentSchema.nullable(),
+});
+export type HistoryEntry = z.infer<typeof historyEntrySchema>;
+
+export const historyResponseSchema = z.object({
+  parkings: z.array(historyEntrySchema),
+  nextCursor: z.string().nullable(),
+});
+export type HistoryResponse = z.infer<typeof historyResponseSchema>;
+
+export function formatLotDateTime(date: Date | string) {
+  return `${formatLotDate(date)}, ${formatLotTime(date)}`;
 }

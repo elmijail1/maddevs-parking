@@ -1,8 +1,17 @@
-import { defaultCarDisplayName, type AddCarRequest, type Car } from "@parking/shared";
+import {
+  decodeCursor,
+  defaultCarDisplayName,
+  encodeCursor,
+  listPageSize,
+  maxCarsPerUser,
+  type AddCarRequest,
+  type Car,
+  type CarsResponse,
+} from "@parking/shared";
 import { prisma } from "../db";
 import { Prisma, type UserVehicle } from "../generated/prisma/client";
 
-export type AddCarResult = { car: Car } | { error: "vehicle_mismatch" | "already_added" };
+export type AddCarResult = { car: Car } | { error: "vehicle_mismatch" | "already_added" | "car_limit_reached" };
 
 export function toCar(link: UserVehicle): Car {
   return {
@@ -31,15 +40,39 @@ async function findOrCreateVehicle({ regNumber, vin, certificateNumber }: AddCar
   }
 }
 
-export async function listCars(userId: string) {
-  const links = await prisma.userVehicle.findMany({
-    where: { userId, status: "active" },
-    orderBy: [{ latestStatusChange: "desc" }, { createdAt: "desc" }],
+export async function listCars(userId: string, cursor?: string): Promise<CarsResponse> {
+  const after = cursor && decodeCursor(cursor);
+  const found = await prisma.userVehicle.findMany({
+    where: {
+      userId,
+      status: "active",
+      ...(after && {
+        OR: [
+          { latestStatusChange: { lt: after.date } },
+          { latestStatusChange: after.date, id: { lt: after.id } },
+        ],
+      }),
+    },
+    orderBy: [{ latestStatusChange: "desc" }, { id: "desc" }],
+    take: listPageSize + 1,
   });
-  return links.map(toCar);
+  const links = found.slice(0, listPageSize);
+  const last = links.at(-1);
+  return {
+    cars: links.map(toCar),
+    nextCursor: found.length > listPageSize && last ? encodeCursor(last.latestStatusChange, last.id) : null,
+  };
 }
 
+class CarLimitReachedError extends Error {}
+
+const activeCarCount = (client: Prisma.TransactionClient, userId: string) =>
+  client.userVehicle.count({ where: { userId, status: "active" } });
+
 export async function addCar(userId: string, request: AddCarRequest, now = new Date()): Promise<AddCarResult> {
+  if ((await activeCarCount(prisma, userId)) >= maxCarsPerUser) {
+    return { error: "car_limit_reached" };
+  }
   const vehicle = await findOrCreateVehicle(request);
   if (vehicle.vin !== request.vin || vehicle.registrationCertificateNumber !== request.certificateNumber) {
     return { error: "vehicle_mismatch" };
@@ -47,23 +80,32 @@ export async function addCar(userId: string, request: AddCarRequest, now = new D
 
   const displayName = request.displayName ?? defaultCarDisplayName;
   const key = { userId_vehicleRegNumber: { userId, vehicleRegNumber: vehicle.regNumber } };
-  const existingLink = await prisma.userVehicle.findUnique({ where: key });
-  if (existingLink?.status === "active") {
-    return { error: "already_added" };
-  }
 
   try {
-    const link = existingLink
-      ? await prisma.userVehicle.update({
-          where: { id: existingLink.id, status: "inactive" },
-          data: { status: "active", displayName, latestStatusChange: now },
-        })
-      : await prisma.userVehicle.create({
-          data: { userId, vehicleRegNumber: vehicle.regNumber, displayName, latestStatusChange: now },
-        });
-    return { car: toCar(link) };
+    const link = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId}::uuid FOR UPDATE`;
+      const existingLink = await tx.userVehicle.findUnique({ where: key });
+      if (existingLink?.status === "active") {
+        return null;
+      }
+      if ((await activeCarCount(tx, userId)) >= maxCarsPerUser) {
+        throw new CarLimitReachedError();
+      }
+      return existingLink
+        ? tx.userVehicle.update({
+            where: { id: existingLink.id },
+            data: { status: "active", displayName, latestStatusChange: now },
+          })
+        : tx.userVehicle.create({
+            data: { userId, vehicleRegNumber: vehicle.regNumber, displayName, latestStatusChange: now },
+          });
+    });
+    return link ? { car: toCar(link) } : { error: "already_added" };
   } catch (error) {
-    if (isUniqueViolation(error) || (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025")) {
+    if (error instanceof CarLimitReachedError) {
+      return { error: "car_limit_reached" };
+    }
+    if (isUniqueViolation(error)) {
       return { error: "already_added" };
     }
     throw error;

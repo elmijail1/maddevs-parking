@@ -104,6 +104,61 @@ describe("POST /api/cars", () => {
     expect(await prisma.userVehicle.count()).toBe(1);
   });
 
+  describe("the limit of 20 active cars", () => {
+    async function addCars(count: number) {
+      const added = [];
+      for (let index = 0; index < count; index++) {
+        const regNumber = `LIM${String(index).padStart(2, "0")}`;
+        added.push((await addCar({ regNumber, vin: `VIN${regNumber}`, certificateNumber: `C${regNumber}` })).json().car);
+      }
+      return added as { id: string; regNumber: string }[];
+    }
+
+    it("refuses a 21st car and creates nothing for it", async () => {
+      await addCars(20);
+
+      const response = await addCar(car);
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual({ error: "car_limit_reached" });
+      expect(await prisma.userVehicle.count({ where: { status: "active" } })).toBe(20);
+      expect(await prisma.vehicle.findUnique({ where: { regNumber: car.regNumber } })).toBeNull();
+    });
+
+    it("also counts re-adding a removed car, and allows it after removing another", async () => {
+      const [first, second] = await addCars(20);
+      await request("DELETE", `/api/cars/${first!.id}`);
+      await addCar(car);
+
+      const firstAgain = { regNumber: first!.regNumber, vin: `VIN${first!.regNumber}`, certificateNumber: `C${first!.regNumber}` };
+      const reAdding = await addCar(firstAgain);
+      expect(reAdding.json()).toEqual({ error: "car_limit_reached" });
+
+      await request("DELETE", `/api/cars/${second!.id}`);
+      const afterRemoving = await addCar(firstAgain);
+      expect(afterRemoving.statusCode).toBe(201);
+    });
+
+    it("can't be passed by adding several cars at once", async () => {
+      await addCars(18);
+
+      const responses = await Promise.all(
+        ["RACE1", "RACE2", "RACE3", "RACE4"].map((regNumber) =>
+          addCar({ regNumber, vin: `VIN${regNumber}`, certificateNumber: `C${regNumber}` }),
+        ),
+      );
+
+      expect(responses.filter((r) => r.statusCode === 201)).toHaveLength(2);
+      expect(await prisma.userVehicle.count({ where: { status: "active" } })).toBe(20);
+    });
+
+    it("is per user", async () => {
+      await addCars(20);
+
+      expect((await addCar(car, await signUp(app, "other@example.com"))).statusCode).toBe(201);
+    });
+  });
+
   it.each([
     ["no body", undefined],
     ["a missing VIN", { regNumber: car.regNumber, certificateNumber: car.certificateNumber }],
@@ -138,6 +193,28 @@ describe("GET /api/cars", () => {
     await request("DELETE", `/api/cars/${second.id}`);
 
     expect((await listCars()).map((c: { regNumber: string }) => c.regNumber)).toEqual(["THIRD3", "FIRST1"]);
+  });
+
+  it("loads 10 cars at a time, following the cursor", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const regNumbers = Array.from({ length: 13 }, (_, index) => `CAR${String(index).padStart(2, "0")}`);
+    for (const [index, car] of regNumbers.entries()) {
+      vi.setSystemTime(new Date(Date.UTC(2026, 9, 29, 10, index)));
+      await addCar({ regNumber: car, vin: `VIN${car}`, certificateNumber: `C${car}` });
+    }
+
+    const first = (await request("GET", "/api/cars")).json();
+    const second = (await request("GET", `/api/cars?cursor=${encodeURIComponent(first.nextCursor)}`)).json();
+
+    expect(first.cars).toHaveLength(10);
+    expect(second).toMatchObject({ nextCursor: null });
+    expect([...first.cars, ...second.cars].map((c: { regNumber: string }) => c.regNumber)).toEqual(
+      [...regNumbers].reverse(),
+    );
+  });
+
+  it("rejects a malformed cursor", async () => {
+    expect((await request("GET", "/api/cars?cursor=abc")).statusCode).toBe(400);
   });
 
   it("requires a logged-in user", async () => {
