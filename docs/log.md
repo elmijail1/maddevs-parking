@@ -21,6 +21,7 @@
 - Step 15 (concurrency and multiple tabs): reviewed what was covered and found four gaps. Added cross-tab syncing of logout, login and email changes (`BroadcastChannel`), a "Live updates paused, reconnecting…" notice with automatic reconnecting (checking the session, 3–30 s backoff), two-tab frontend tests for the plan's cases and the syncing, and future ideas for several backend instances and Playwright end-to-end tests. Updated implementation-plan.md (step 15, case 4). 9 new frontend tests (144 in total).
 - Fixed the live-updates notice not appearing when the backend stops: through the Vite proxy the stream stayed open without an error. The server now sends a `heartbeat` event every 5 s and the page treats 12 s of silence as a lost connection; a failed session re-check while the backend is down no longer replaces the page. 1 new backend test (249 in total), 2 frontend (146). Checked the heartbeats and their stop through the Vite proxy.
 - The "Live updates paused" notice now floats below the header (fixed, centred) instead of pushing the diagram down.
+- Filled in the README: technology versions, step-by-step local setup, 5 main features and 3 limitations.
 
 29.10. Step 3 (allowExit):
 - Added the charge calculation to the shared package: full minutes only, split at the 08:00/20:00 rate boundaries, plus money formatting, with unit tests.
