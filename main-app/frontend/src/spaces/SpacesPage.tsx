@@ -1,5 +1,5 @@
 import { bookingExpirationMinutes, type Booking, type Space } from "@parking/shared";
-import { Button, CircularProgress, Typography } from "@mui/material";
+import { Alert, Button, CircularProgress, Typography } from "@mui/material";
 import { useIsMutating } from "@tanstack/react-query";
 import { useState } from "react";
 import { bookSpaceMutationKey, ChooseCarDialog } from "./ChooseCarDialog";
@@ -30,7 +30,7 @@ function groupIntoRows(spaces: Space[]) {
 }
 
 export function SpacesPage() {
-  const { data: spaces, isPending, isError, refetch } = useSpaces();
+  const { data: spaces, isPending, isError, refetch, livePaused } = useSpaces();
   const { data: myParkings } = useMyParkings();
   const [dialog, setDialog] = useState<DialogState>(null);
   const booking = useIsMutating({ mutationKey: bookSpaceMutationKey }) > 0;
@@ -97,6 +97,14 @@ export function SpacesPage() {
       <Typography variant="h4" component="h1">
         Parking lot
       </Typography>
+      {livePaused && spaces && (
+        <Alert
+          severity="warning"
+          className="fixed left-1/2 top-[4.5rem] z-[1050] -translate-x-1/2 whitespace-nowrap shadow-lg sm:top-20"
+        >
+          Live updates paused, reconnecting…
+        </Alert>
+      )}
       <section
         aria-label="Parking lot diagram"
         className="flex min-h-96 items-center justify-center rounded-lg border-2 border-gray-400 p-6"

@@ -1,9 +1,7 @@
-import { spacesEventName, type SpacesResponse } from "@parking/shared";
+import { heartbeatEventName, liveHeartbeatSeconds, spacesEventName, type SpacesResponse } from "@parking/shared";
 import type { FastifyPluginAsync } from "fastify";
 import { requireUser } from "../plugins/user-auth";
 import { listSpaces, subscribeToSpaces } from "../services/spaces";
-
-const heartbeatIntervalMs = 25_000;
 
 export const spaceRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("onRequest", requireUser);
@@ -23,7 +21,10 @@ export const spaceRoutes: FastifyPluginAsync = async (app) => {
       (data) => reply.raw.write(`event: ${spacesEventName}\ndata: ${data}\n\n`),
       request.log,
     );
-    const heartbeat = setInterval(() => reply.raw.write(": heartbeat\n\n"), heartbeatIntervalMs);
+    const heartbeat = setInterval(
+      () => reply.raw.write(`event: ${heartbeatEventName}\ndata: {}\n\n`),
+      liveHeartbeatSeconds * 1000,
+    );
 
     request.raw.on("close", () => {
       clearInterval(heartbeat);

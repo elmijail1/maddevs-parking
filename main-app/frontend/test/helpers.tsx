@@ -23,9 +23,16 @@ export class FakeEventSource {
     this.closed = true;
   }
 
+  readyState = 1;
+
   emit(type: string, data: unknown) {
     const event = new MessageEvent(type, { data: JSON.stringify(data) });
     this.listeners.get(type)?.forEach((listener) => listener(event));
+  }
+
+  fail({ permanently }: { permanently: boolean }) {
+    this.readyState = permanently ? 2 : 0;
+    this.listeners.get("error")?.forEach((listener) => listener(new MessageEvent("error")));
   }
 }
 

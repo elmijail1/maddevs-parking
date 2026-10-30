@@ -4,6 +4,7 @@ import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-quer
 import { useState, type FormEvent, type ReactNode } from "react";
 import { ApiRequestError } from "../api-request";
 import { currentUserQueryKey } from "../auth/api";
+import { clearUserData, useBroadcastAuth } from "../auth/auth-sync";
 import { useCurrentUser } from "../auth/use-current-user";
 import { PasswordField } from "../components/PasswordField";
 import { collectErrors } from "../forms";
@@ -61,11 +62,13 @@ function EditorActions({ onCancel }: { onCancel: () => void }) {
 
 function EmailEditor({ user, onSaved, onFailed, onCancel }: EditorProps & { user: AuthUser }) {
   const queryClient = useQueryClient();
+  const broadcastAuth = useBroadcastAuth();
   const { values, setErrors, fieldProps } = useEditorForm({ email: user.email, currentPassword: "" });
   const mutation = useMutation({
     mutationFn: changeEmail,
     onSuccess: (updated) => {
       queryClient.setQueryData(currentUserQueryKey, updated);
+      broadcastAuth({ type: "user-changed" });
       onSaved("Your email was changed.");
     },
     onError: (error) => handleSaveError(error, setErrors, onFailed),
@@ -175,6 +178,7 @@ function ProfileSection({
 
 export function ProfilePage() {
   const queryClient = useQueryClient();
+  const broadcastAuth = useBroadcastAuth();
   const { data: user, refetch, isFetching } = useCurrentUser();
   const [editor, setEditor] = useState<EditorName | null>(null);
   const [failed, setFailed] = useState(false);
@@ -184,8 +188,9 @@ export function ProfilePage() {
   const logout = useMutation({
     mutationFn: logOut,
     onSuccess: () => {
-      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== currentUserQueryKey[0] });
+      clearUserData(queryClient);
       queryClient.setQueryData(currentUserQueryKey, null);
+      broadcastAuth({ type: "logged-out" });
     },
     onError: () => setFailed(true),
   });

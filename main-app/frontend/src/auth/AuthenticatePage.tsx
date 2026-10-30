@@ -5,6 +5,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { PasswordField } from "../components/PasswordField";
 import { collectErrors } from "../forms";
 import { AuthRequestError, currentUserQueryKey, logIn, signUp } from "./api";
+import { clearUserData, useBroadcastAuth } from "./auth-sync";
 
 type Mode = "login" | "signup";
 
@@ -34,6 +35,7 @@ const serverErrorMessages: Record<string, { field?: string; message: string }> =
 
 function AuthForm({ mode }: { mode: Mode }) {
   const queryClient = useQueryClient();
+  const broadcastAuth = useBroadcastAuth();
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields[mode].map((field) => [field.name, ""])),
   );
@@ -48,7 +50,11 @@ function AuthForm({ mode }: { mode: Mode }) {
       const { email, password } = signupFormSchema.parse(values);
       return signUp({ email, password });
     },
-    onSuccess: (user) => queryClient.setQueryData(currentUserQueryKey, user),
+    onSuccess: (user) => {
+      clearUserData(queryClient);
+      queryClient.setQueryData(currentUserQueryKey, user);
+      broadcastAuth({ type: "logged-in" });
+    },
     onError: (error) => {
       const known = error instanceof AuthRequestError ? serverErrorMessages[error.code] : undefined;
       if (known?.field) {

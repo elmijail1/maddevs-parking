@@ -221,7 +221,10 @@ The user can have multiple cars on the list.
 
 - 15. Concurrency control
 The task explicitly requires to handle multiple tabs. So we must make sure the app works stably for that.
+- Logging out, logging in or changing the email in one tab applies to the user's other tabs too, so no tab keeps showing protected pages or stale data.
+- If the live updates stop (e.g. the connection is lost or the session expires), the diagram shows "Live updates paused, reconnecting…" and reconnects by itself, or sends the user to log in if the session has ended.
 - success criteria cases to test:
 - - 1. Booking a space in one tab updates the space in both tabs (two different users): in the one it was booked it becomes highlighted, in the other – unavailable.
 - - 2. Booking a space in one tab updates the space in both tabs (one user with two tabs): both tabs now have the car highlighted.
 - - 3. Cancelling a booking in one tab updates the space in both (two different users): in both the space becomes available.
+- - 4. Logging out in one tab logs the user out in their other tabs too.

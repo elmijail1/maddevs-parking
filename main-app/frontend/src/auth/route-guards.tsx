@@ -9,6 +9,9 @@ const defaultPath = "/spaces";
 
 function UserCheck({ children }: { children: (user: AuthUser | null) => ReactNode }) {
   const { data: user, isPending, isError, refetch } = useCurrentUser();
+  if (user !== undefined) {
+    return children(user);
+  }
   if (isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -26,7 +29,7 @@ function UserCheck({ children }: { children: (user: AuthUser | null) => ReactNod
       </div>
     );
   }
-  return children(user);
+  return null;
 }
 
 export function RequireAuth() {

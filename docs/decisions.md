@@ -6,6 +6,27 @@ The baseline technical and business decisions made before development started ar
 
 ---
 
+## 30.10. Step 15 (concurrency and multiple tabs)
+
+### What was already in place
+- **Server:** every racing write is guarded by a conditional update or a constraint (booking only a vacant space, one open parking per space and per car, one pending/successful payment per parking, cancelling once, the car limit under a row lock, conditional total refreshes). **Tabs:** every tab gets space changes over SSE and refetches "my parkings", so the plan's three cases already worked; dialogs for spaces that changed meanwhile react to it; lists without SSE refetch when the tab gets focus.
+
+### Login state is shared between tabs
+- **Decision:** each app instance opens one `BroadcastChannel` ("parking-auth") and uses it both to listen and to post, so it never hears its own messages. Logging out → the other tabs clear their cached data and mark the user as logged out (they go to `/authenticate`, which also closes their SSE streams). Logging in → they clear their cached data and fetch the current user again (it may be a different user). Changing the email → they fetch the current user again.
+- **Why:** the current user is cached forever (`staleTime: Infinity`), and an open SSE stream only checks the token when it connects, so a tab could keep showing protected pages and live data after logging out elsewhere.
+
+### Live updates recover visibly
+- **Decision:** while the stream is down, the diagram shows "Live updates paused, reconnecting…"; it disappears with the next update (the server always sends the whole list when a stream connects). If the browser gives up on the stream for good (an error answer such as `401` after the token expired), the app re-checks the session (going to `/authenticate` if it has ended) and reopens the stream after 3 s, doubling the wait up to 30 s.
+- **Why:** `EventSource` only reconnects by itself after dropped connections, not after error responses, and a frozen diagram looks the same as a quiet one.
+- **Heartbeats instead of trusting the connection:** the server sends a `heartbeat` event every 5 s (it used to send an SSE comment every 25 s, which the browser hides from JavaScript), and the page treats 12 s without any event as a lost connection (notice, then the reconnect above). Found when stopping the backend didn't show the notice: through Vite's dev proxy (and many real proxies) the browser's connection stays open when the backend goes away, so no error ever arrives.
+- **A failed session check doesn't replace the page:** the session guard keeps showing the page while the current user is known, even if a background re-check fails (e.g. the backend is down during a reconnect); the "couldn't check your session" screen only appears when there's no user data at all.
+
+### Tests and limits
+- **Two-tab tests:** two app instances side by side, each with its own query cache and fake event stream, run the plan's cases (one user, two users, cancelling) plus logout, login and email-change syncing. Real-browser end-to-end tests (Playwright) are in future-ideas.md.
+- **One backend instance:** the scheduler and the SSE broadcaster are in-memory, so the app assumes a single backend instance; what several would need is in future-ideas.md.
+
+---
+
 ## 30.10. Step 14 (several bookings and parkings per user)
 
 ### What was already in place, and what was added
@@ -214,7 +235,7 @@ The baseline technical and business decisions made before development started ar
 - **Changes are announced from the device routes** that can change spaces (new-entrance, new-parking, space-vacant-again), after the service finishes, so the transaction is committed. Future booking, cancelling and expiry code will announce the same way.
 - **One broadcast at a time:** a change reads the list once for all clients, and changes that arrive during a broadcast cause exactly one more read. Each client remembers the last list it got and only receives a different one, so a request that changed nothing sends nothing. A newly connected client gets the list through the same queue, so it can never receive an older list after a newer one.
 - **No DB read while no client is connected**, which also keeps the other backend tests unaffected.
-- **A heartbeat comment every 25 s** keeps proxies from closing an idle stream, and `retry: 3000` sets the browser's reconnect delay. `forceCloseConnections` is on so open streams don't block a server restart.
+- **A heartbeat every 25 s** keeps proxies from closing an idle stream, and `retry: 3000` sets the browser's reconnect delay. (Since step 15 it's a `heartbeat` event every 5 s, which the page also uses to notice a dead connection.) `forceCloseConnections` is on so open streams don't block a server restart.
 - **The frontend recovers by itself:** the SSE list goes into the same query cache as `GET /api/spaces`, so a failed first load is replaced by the next pushed list. A dialog for a space that stops being vacant closes and doesn't reopen when the space is freed.
 
 ---

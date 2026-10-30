@@ -67,6 +67,8 @@ export type SpacesResponse = z.infer<typeof spacesResponseSchema>;
 
 export const spacesEventName = "spaces";
 
+export const heartbeatEventName = "heartbeat";
+
 export const paymentSessionRequestSchema = z.object({
   paymentId: z.uuid(),
   total: z.number().int().nonnegative(),

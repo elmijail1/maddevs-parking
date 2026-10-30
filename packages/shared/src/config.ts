@@ -17,6 +17,10 @@ export const bookingExpirationMinutes = 15;
 
 export const maxCarsPerUser = 20;
 
+export const liveHeartbeatSeconds = 5;
+
+export const liveSilenceTimeoutSeconds = 12;
+
 export const bookingReminderMinutesBeforeExpiry = 10;
 
 export const bookingExpiryGapSeconds = 30;

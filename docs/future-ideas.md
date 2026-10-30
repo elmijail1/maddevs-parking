@@ -45,3 +45,13 @@
 - A user can have up to 20 cars, and VINs aren't checked against a real register, so one user could book every space in the lot at once and keep doing it every 15 minutes, blocking it for everyone else.
 - A limit such as 2 bookings at a time per user (cars already in the lot not counted) would stop that, with a message like "You can have up to 2 bookings at a time."
 - Possible benefit: fair access to the lot. Not needed yet, since it takes deliberate abuse.
+
+## Running several backend instances
+- The scheduler (booking reminders and expiries, the hourly totals refresh) and the SSE broadcaster live in the backend's memory, so the app assumes a single backend instance. With several, every job would run on each instance (duplicate emails, though the conditional updates keep the data right), and a tab connected to one instance would miss space changes made through another.
+- Postgres `LISTEN/NOTIFY` (or Redis pub/sub) would let every instance hear about space changes and broadcast them to its own clients. A persistent job queue with a single worker (e.g. pg-boss, which stores jobs in Postgres) would run each job exactly once and survive restarts, which would also remove the need to reschedule bookings on startup.
+- Possible benefit: horizontal scaling and zero-downtime deploys.
+
+## End-to-end tests in a real browser
+- Multi-tab behaviour is tested with two app instances in one jsdom page, sharing a fake event stream, plus backend tests with real SSE connections. A real browser isn't involved.
+- Playwright could open two browser contexts (two users) or two pages of one context (one user, two tabs) against the real backend, frontend and mocks, and run the step 15 cases end to end, including the real `BroadcastChannel` and `EventSource`.
+- Possible benefit: catching issues that only show up in a browser (styles, real reconnects, cookies). It needs Playwright and its browsers installed.

@@ -1,4 +1,4 @@
-import { spacesEventName, spacesResponseSchema } from "@parking/shared";
+import { heartbeatEventName, liveHeartbeatSeconds, spacesEventName, spacesResponseSchema } from "@parking/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "../src/db";
 import { env } from "../src/env";
@@ -162,6 +162,21 @@ describe("GET /api/spaces/events", () => {
 
     expect(statuses(await first.nextSpaces())).toMatchObject({ A1: "booked" });
     expect(statuses(await second.nextSpaces())).toMatchObject({ A1: "booked" });
+  });
+
+  it("sends a heartbeat event every few seconds", { timeout: 10_000 }, async () => {
+    const controller = new AbortController();
+    openStreams.push(controller);
+    const response = await fetch(`${baseUrl}/api/spaces/events`, { signal: controller.signal, headers: { cookie } });
+    const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
+    let received = "";
+    const startedAt = Date.now();
+
+    while (!received.includes(`event: ${heartbeatEventName}\n`)) {
+      received += (await reader.read()).value;
+    }
+
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(liveHeartbeatSeconds * 1000 - 200);
   });
 
   it("doesn't send anything when a request changes no space", async () => {
